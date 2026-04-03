@@ -17,6 +17,31 @@ The goal is not to build a generic chatbot. The goal is to build a grounded, tra
 
 The system accepts a business investigation question through a FastAPI endpoint, routes the request through a LangGraph workflow, gathers evidence from both DuckDB tables and ChromaDB-retrieved documents, and produces a grounded answer with citations, confidence, trace steps, and analyst-review fallback.
 
+## Demo Preview
+
+### Streamlit overview
+
+![Streamlit overview](./assets/demo-overview.png)
+
+The current demo flow highlights:
+
+- role-aware investigation from the sidebar
+- grounded answer output with confidence and analyst-review status
+- freshness and completeness signals for partial or lagging data
+- blocked-source handling for restricted roles
+
+### Confidence breakdown
+
+![Confidence breakdown](./assets/confidence-breakdown.png)
+
+The breakdown panel explains why a case is high, medium, or low confidence using evidence availability, blocked sources, freshness, completeness, and analyst-review triggers.
+
+### Workflow trace
+
+![Workflow trace](./assets/workflow-trace.png)
+
+The workflow trace makes the orchestration path visible step by step, which is especially useful for debugging and for explaining the system clearly in interviews.
+
 ## Architecture
 
 ```mermaid
