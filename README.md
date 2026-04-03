@@ -303,7 +303,7 @@ This project demonstrates:
 
 ## Future Work
 
-- Streamlit or React analyst-facing UI
+- React-based multi-page analyst workspace with auth and richer state management
 - richer SQL drafting and deeper investigation mode
 - larger eval dataset with faithfulness and citation scoring
 - prompt and retrieval regression tracking
