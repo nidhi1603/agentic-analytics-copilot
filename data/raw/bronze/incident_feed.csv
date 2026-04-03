@@ -1,0 +1,7 @@
+incident_ref,opened_on,market,incident_kind,priority,current_status,details,owning_team
+INC-301,2026-03-31,Region 3,carrier_outage,high,mitigated,Primary last-mile partner hit capacity shortage during peak dispatch window,carrier_operations
+INC-302,2026-03-31,region-3,weather_alert,medium,resolved,Heavy rainfall caused route congestion and delayed handoffs,network_planning
+INC-303,2026-04-01,R3,ops_intervention,low,resolved,Backup carrier allocation and manual rerouting improved delivery throughput,regional_ops
+INC-401,2026-04-01,Region 4,packaging_defect,medium,open,Packaging issue increased return requests for fragile items,customer_experience
+INC-401,2026-04-01,r4,packaging_defect,medium,open,Duplicate row from delayed incident sync,customer_experience
+

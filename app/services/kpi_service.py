@@ -18,7 +18,10 @@ def get_kpi_summary(
                 metric_target,
                 anomaly_flag,
                 anomaly_severity,
-                notes
+                notes,
+                data_as_of,
+                freshness_status,
+                completeness_pct
             FROM daily_kpis
             WHERE (? IS NULL OR region = ?)
               AND (? IS NULL OR metric_name = ?)
@@ -42,6 +45,9 @@ def get_kpi_summary(
             anomaly_flag=row[5],
             anomaly_severity=row[6],
             notes=row[7],
+            data_as_of=str(row[8]),
+            freshness_status=row[9],
+            completeness_pct=row[10],
         )
         for row in rows
     ]
@@ -62,7 +68,10 @@ def get_anomaly_report(
                 metric_target,
                 anomaly_flag,
                 anomaly_severity,
-                notes
+                notes,
+                data_as_of,
+                freshness_status,
+                completeness_pct
             FROM daily_kpis
             WHERE anomaly_flag = TRUE
               AND (? IS NULL OR region = ?)
@@ -86,7 +95,9 @@ def get_anomaly_report(
             anomaly_flag=row[5],
             anomaly_severity=row[6],
             notes=row[7],
+            data_as_of=str(row[8]),
+            freshness_status=row[9],
+            completeness_pct=row[10],
         )
         for row in rows
     ]
-

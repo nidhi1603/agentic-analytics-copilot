@@ -39,6 +39,7 @@ def test_metric_definition_maps_expected_fields(monkeypatch) -> None:
                             "region-day",
                             "Delivered shipments divided by attempted shipments",
                             "Check failed deliveries first",
+                            "verified",
                         )
 
                 return FakeCursor()
@@ -55,4 +56,4 @@ def test_metric_definition_maps_expected_fields(monkeypatch) -> None:
 
     assert isinstance(result, MetricDefinitionRecord)
     assert result.metric_owner == "Operations Analytics"
-
+    assert result.definition_quality == "verified"

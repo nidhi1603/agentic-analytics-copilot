@@ -38,6 +38,9 @@ def tool_get_metric_definition(metric_name: str) -> MetricDefinitionRecord | Non
     return get_metric_definition(metric_name=metric_name)
 
 
-def tool_retrieve_documents(query_text: str, limit: int = 4) -> list[RetrievedDocument]:
-    return retrieve_documents(query_text=query_text, limit=limit)
-
+def tool_retrieve_documents(
+    query_text: str,
+    role: str,
+    limit: int = 4,
+) -> tuple[list[RetrievedDocument], list[str], list[str]]:
+    return retrieve_documents(query_text=query_text, role=role, limit=limit)

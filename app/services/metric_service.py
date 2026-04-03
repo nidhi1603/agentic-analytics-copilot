@@ -11,7 +11,8 @@ def get_metric_definition(metric_name: str) -> MetricDefinitionRecord | None:
                 metric_owner,
                 metric_grain,
                 metric_definition,
-                investigation_hint
+                investigation_hint,
+                definition_quality
             FROM metric_definitions
             WHERE metric_name = ?
             LIMIT 1
@@ -29,5 +30,5 @@ def get_metric_definition(metric_name: str) -> MetricDefinitionRecord | None:
         metric_grain=row[2],
         metric_definition=row[3],
         investigation_hint=row[4],
+        definition_quality=row[5],
     )
-

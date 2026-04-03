@@ -14,7 +14,7 @@ def load_eval_cases() -> list[dict]:
 
 
 def evaluate_case(case: dict) -> dict:
-    response = run_question_workflow(case["question"])
+    response = run_question_workflow(case["question"], case["role"])
 
     route_in_trace = next(
         (item for item in response.trace if item.startswith("classify_request:")),
@@ -38,6 +38,8 @@ def evaluate_case(case: dict) -> dict:
         ),
         "route_detected": case["expected_route"] in route_in_trace,
         "answer_present": len(response.answer.strip()) > 0,
+        "freshness_detected": response.freshness_status == case["expected_freshness_status"],
+        "blocked_sources_expected": len(response.blocked_sources) >= case["expected_min_blocked_sources"],
     }
 
     passed = sum(1 for value in checks.values() if value)
@@ -49,6 +51,8 @@ def evaluate_case(case: dict) -> dict:
         "score": round(passed / total, 2),
         "confidence": response.confidence,
         "needs_analyst_review": response.needs_analyst_review,
+        "role": response.role,
+        "blocked_sources": response.blocked_sources,
     }
 
 
@@ -74,4 +78,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

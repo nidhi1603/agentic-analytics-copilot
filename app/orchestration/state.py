@@ -16,6 +16,7 @@ RouteType = Literal["structured_only", "documents_only", "hybrid"]
 
 class WorkflowState(TypedDict, total=False):
     question: str
+    role: str
     route: RouteType
     region: str | None
     metric_name: str | None
@@ -31,3 +32,9 @@ class WorkflowState(TypedDict, total=False):
     evidence_summary: str
     synthesized_answer: SynthesizedAnswer
     citations: list[Citation]
+    blocked_sources: list[str]
+    allowed_sources: list[str]
+    data_as_of: str | None
+    freshness_status: str
+    completeness_status: str
+    analyst_review_reason: str | None

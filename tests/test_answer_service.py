@@ -18,4 +18,29 @@ def test_apply_confidence_guardrails_marks_missing_evidence_low_confidence() -> 
 
     assert result.confidence == "low"
     assert result.needs_analyst_review is True
+    assert any("No structured KPI evidence" in item for item in result.confidence_breakdown)
 
+
+def test_apply_confidence_guardrails_marks_restricted_access_low_confidence() -> None:
+    synthesized = SynthesizedAnswer(
+        answer="Restricted access.",
+        likely_causes=[],
+        recommended_next_steps=[],
+        confidence="medium",
+        needs_analyst_review=False,
+    )
+
+    result = apply_confidence_guardrails(
+        {
+            "anomaly_report": [],
+            "documents": [],
+            "incidents": [],
+            "blocked_sources": ["document:incident_notes (restricted)"],
+        },
+        synthesized,
+    )
+
+    assert result.confidence == "low"
+    assert result.needs_analyst_review is True
+    assert "restricted" in (result.analyst_review_reason or "").lower()
+    assert any("blocked by role-based access policy" in item for item in result.confidence_breakdown)

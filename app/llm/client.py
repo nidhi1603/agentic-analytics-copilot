@@ -58,7 +58,9 @@ def fallback_synthesized_answer(state: WorkflowState) -> SynthesizedAnswer:
             likely_causes=[],
             recommended_next_steps=["Escalate to an analyst for manual investigation."],
             confidence="low",
+            confidence_breakdown=["Both structured and document evidence were unavailable in the fallback path."],
             needs_analyst_review=True,
+            analyst_review_reason="Evidence was missing across both structured and document sources.",
         )
 
     return SynthesizedAnswer(
@@ -69,6 +71,10 @@ def fallback_synthesized_answer(state: WorkflowState) -> SynthesizedAnswer:
         likely_causes=likely_causes,
         recommended_next_steps=recommended_next_steps,
         confidence="medium",
+        confidence_breakdown=[
+            "Fallback synthesis was used instead of the primary LLM response path.",
+            "Evidence was present, but the conservative fallback keeps confidence below auto-approval.",
+        ],
         needs_analyst_review=True,
+        analyst_review_reason="This fallback path is conservative and keeps an analyst in the loop.",
     )
-

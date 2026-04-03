@@ -13,7 +13,8 @@ def get_incidents(region: str | None = None, limit: int = 10) -> list[IncidentRe
                 incident_type,
                 severity,
                 status,
-                summary
+                summary,
+                source_team
             FROM incident_log
             WHERE (? IS NULL OR region = ?)
             ORDER BY incident_date DESC, severity DESC
@@ -32,6 +33,7 @@ def get_incidents(region: str | None = None, limit: int = 10) -> list[IncidentRe
             severity=row[4],
             status=row[5],
             summary=row[6],
+            source_team=row[7],
         )
         for row in rows
     ]
@@ -61,4 +63,3 @@ def get_failure_breakdown(region: str | None = None) -> list[ShipmentFailureBrea
         )
         for row in rows
     ]
-

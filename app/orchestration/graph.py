@@ -54,6 +54,14 @@ def build_investigation_graph():
     return graph.compile()
 
 
-def run_investigation_workflow(question: str) -> WorkflowState:
+def run_investigation_workflow(question: str, role: str) -> WorkflowState:
     graph = build_investigation_graph()
-    return graph.invoke({"question": question, "trace": []})
+    return graph.invoke(
+        {
+            "question": question,
+            "role": role,
+            "trace": [],
+            "blocked_sources": [],
+            "allowed_sources": [],
+        }
+    )

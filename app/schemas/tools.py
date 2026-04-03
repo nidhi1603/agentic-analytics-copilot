@@ -10,6 +10,9 @@ class KPIRecord(BaseModel):
     anomaly_flag: bool
     anomaly_severity: str
     notes: str
+    data_as_of: str
+    freshness_status: str
+    completeness_pct: float
 
 
 class ShipmentFailureBreakdown(BaseModel):
@@ -25,6 +28,7 @@ class IncidentRecord(BaseModel):
     severity: str
     status: str
     summary: str
+    source_team: str
 
 
 class MetricDefinitionRecord(BaseModel):
@@ -33,6 +37,7 @@ class MetricDefinitionRecord(BaseModel):
     metric_grain: str
     metric_definition: str
     investigation_hint: str
+    definition_quality: str
 
 
 class RetrievedDocument(BaseModel):
@@ -42,3 +47,10 @@ class RetrievedDocument(BaseModel):
     doc_group: str
     distance: float | None = None
 
+
+class AccessPolicyRecord(BaseModel):
+    role: str
+    resource_type: str
+    resource_name: str
+    permission: str
+    restriction_reason: str

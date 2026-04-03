@@ -1,0 +1,11 @@
+event_day,market,metric_key,observed_value,target_value,anomaly_ind,severity_label,note_text,extract_ts,freshness_hint,load_ratio
+2026-03-30,region_1,delivery_success,0.95,0.96,false,none,Stable baseline before week close,2026-03-30 23:55:00,fresh,1.00
+2026-03-30,R2,delivery_success_rate,0.94,0.96,0,none,Stable baseline before week close,2026-03-30 23:52:00,fresh,0.99
+2026-03-30,Region 3,delivery_success_rate,0.93,0.96,no,none,Stable baseline before carrier incident,2026-03-30 23:58:00,fresh,1.00
+2026-03-31,region-3,delivery_success,0.81,0.96,yes,HIGH,Sharp decline linked to failed handoffs,2026-03-31 23:56:00,fresh,0.98
+2026-03-31,R3,on_time_delivery,0.76,0.92,1,high,Weather and route congestion impacted SLAs,2026-03-31 23:57:00,fresh,0.97
+2026-03-31,Region 2,on_time_delivery_rate,0.91,0.92,false,low,Minor variation within expected range,2026-04-01 02:40:00,stale,0.82
+2026-04-01,Region 3,delivery_success_rate,0.84,0.96,true,medium,Partial recovery after process intervention,2026-04-01 23:54:00,fresh,0.95
+2026-04-01,r4,return rate,0.11,0.08,true,medium,Return spike after packaging issue but returns feed is still partial,2026-04-02 04:10:00,lagging,0.74
+2026-04-01,Region 4,return_rate,0.10,0.08,true,medium,Older duplicate row before late load correction,2026-04-02 01:10:00,lagging,0.66
+

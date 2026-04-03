@@ -36,10 +36,14 @@ flowchart LR
 ## Core Features
 
 - Natural-language KPI investigation over structured operational data
+- Raw-to-curated data pipeline that turns messy operational feeds into agent-ready serving tables
+- Data quality checks for duplicates, normalization, metric coverage, freshness values, completeness bounds, and policy uniqueness
 - Retrieval over metric definitions, SOPs, runbooks, policies, and incident notes
 - LangGraph-based routing for structured-only, document-only, and hybrid questions
+- Role-aware access control across structured and unstructured sources
 - Grounded answer generation with citations
-- Confidence labels and `needs_analyst_review` fallback
+- Confidence labels, confidence breakdown, analyst-review reasons, and `needs_analyst_review` fallback
+- Freshness and completeness-aware investigation outputs
 - Workflow trace endpoint for debugging orchestration decisions
 - Streamlit demo UI for recruiter-friendly exploration
 - Local evaluation harness for route correctness, citations, trace depth, and answer presence
@@ -61,7 +65,7 @@ flowchart LR
 ### Structured Data
 
 - `DuckDB`
-- CSV seed datasets for KPI, shipment, incident, and metric-definition tables
+- CSV seed datasets for KPI, shipment, incident, metric-definition, and access-policy tables
 
 ### Unstructured Retrieval
 
@@ -86,7 +90,18 @@ flowchart LR
 
 ## Data Sources
 
-This MVP uses synthetic but realistic internal operations data:
+This MVP uses synthetic but realistic internal operations data.
+
+The agent-facing serving tables are rebuilt from a simulated raw bronze layer:
+
+- `data/raw/bronze/kpi_feed.csv`
+- `data/raw/bronze/shipment_event_feed.csv`
+- `data/raw/bronze/incident_feed.csv`
+- `data/raw/bronze/metric_catalog.csv`
+
+Those raw feeds intentionally include duplicates, inconsistent region names, inconsistent metric names, and delayed timestamps.
+
+The curated serving tables are:
 
 - `daily_kpis`
 - `shipment_events`
@@ -104,12 +119,15 @@ It also includes unstructured business knowledge:
 ## Request Flow
 
 1. User submits a business question to `POST /ask`
-2. Router classifies the question as structured, document, or hybrid
-3. Workflow extracts region and metric where possible
-4. Structured tools fetch KPI, anomaly, incident, and failure evidence from DuckDB
-5. Retrieval layer fetches relevant document chunks from ChromaDB
-6. LLM synthesizes an answer strictly from gathered evidence
-7. Guardrails attach confidence, citations, trace, and analyst-review fallback
+2. Raw bronze feeds are normalized into curated CSV serving tables through `scripts/build_curated_data.py`
+3. Data quality checks validate the curated layer before DuckDB is rebuilt
+4. Request role determines which structured resources and doc groups are allowed
+5. Router classifies the question as structured, document, or hybrid
+6. Workflow extracts region and metric where possible
+7. Structured tools fetch KPI, anomaly, incident, and failure evidence from DuckDB only if access policy allows it
+8. Retrieval layer fetches relevant document chunks from ChromaDB and filters restricted sources
+9. LLM synthesizes an answer strictly from gathered evidence
+10. Guardrails attach confidence, confidence breakdown, freshness/completeness status, blocked-source trace, citations, and analyst-review fallback
 
 ## API Endpoints
 
@@ -122,11 +140,16 @@ It also includes unstructured business knowledge:
 The repo now includes a simple Streamlit app in `frontend/streamlit_app.py` that calls the FastAPI backend and renders:
 
 - answer summary
+- selected user role
 - confidence and analyst-review status
+- confidence breakdown
+- freshness and completeness status
 - likely causes
 - recommended next steps
 - citations
+- blocked sources
 - workflow trace
+- request ID and latency
 - raw JSON response
 
 ## Example Questions
@@ -151,7 +174,7 @@ This project includes two layers of quality checks:
 
 Current local result:
 
-- `12/12` tests passing
+- `17/17` tests passing
 
 ### Starter eval harness
 
@@ -162,14 +185,16 @@ The eval harness in `evals/run_eval.py` checks:
 - citation presence
 - trace depth
 - answer presence
+- freshness detection
+- blocked-source expectations by role
 
 Current local starter result:
 
 | Metric | Result |
 |---|---|
-| Eval cases | 4 |
+| Eval cases | 8 |
 | Average score | 1.0 |
-| Coverage | route, trace, citations, answer presence |
+| Coverage | route, trace, citations, freshness, blocked-source handling, answer presence |
 
 This is intentionally a small MVP eval set, not a claim of full production readiness.
 
@@ -187,6 +212,7 @@ app/
   services/         # business logic
   tools/            # agent-callable tools
 data/
+  raw/              # messy bronze-style feeds used to rebuild curated sources
   docs/             # SOPs, runbooks, policies, notes
   structured/       # source CSVs and DuckDB file
   vector/           # ChromaDB persistence
@@ -229,9 +255,13 @@ OPENAI_API_KEY=sk-...
 ### 4. Initialize data stores
 
 ```bash
+python scripts/build_curated_data.py
+python scripts/run_data_quality_checks.py
 python scripts/init_duckdb.py
 python scripts/index_documents.py
 ```
+
+`python scripts/init_duckdb.py` already rebuilds curated data and runs the quality checks before recreating DuckDB, so the first two commands are optional if you want the one-step path.
 
 ### 5. Run the API
 
@@ -273,23 +303,32 @@ python evals/run_eval.py
 The `POST /ask` endpoint returns:
 
 - `answer`
+- `role`
 - `confidence`
+- `confidence_breakdown`
 - `needs_analyst_review`
+- `analyst_review_reason`
 - `likely_causes`
 - `recommended_next_steps`
 - `citations`
 - `trace`
 - `evidence_summary`
+- `blocked_sources`
+- `data_as_of`
+- `freshness_status`
+- `completeness_status`
+- `request_id`
+- `latency_ms`
 
 ## Limitations
 
-- The current dataset is synthetic and intentionally small
+- The current dataset is synthetic and intentionally small, even though it now includes a raw-to-curated simulation layer
 - Eval coverage is still a starter harness rather than a large regression suite
 - Confidence logic is heuristic and should be calibrated further
 - Retrieval currently uses a simple chunking strategy without reranking
 - The vector index is generated locally and intentionally excluded from source control
-- Access control, auth, and role-based permissions are not implemented yet
-- The current interface is API-first; a polished analyst-facing UI is the next step
+- Role-aware access is implemented, but real authentication and identity-aware authorization are still missing
+- The current interface is a polished demo UI, not a fully deployed internal product
 
 ## Production Considerations
 
@@ -298,6 +337,7 @@ In a real enterprise setting, the AI workflow should not sit directly on top of 
 Key production concerns:
 
 - raw source data is often incomplete, duplicated, delayed, or inconsistent
+- raw-to-curated transforms should be observable and rerunnable
 - late-arriving events can make current-day metrics temporarily unreliable
 - freshness and completeness metadata should be propagated into confidence scoring
 - low-quality or stale data should lower confidence and increase analyst-review routing

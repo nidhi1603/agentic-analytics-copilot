@@ -9,4 +9,4 @@ router = APIRouter(tags=["ask"])
 
 @router.post("/ask", response_model=AskResponse)
 def ask_question(request: AskRequest) -> AskResponse:
-    return run_question_workflow(request.question)
+    return run_question_workflow(request.question, request.role)

@@ -1,35 +1,90 @@
 [
   {
     "question": "Why did delivery success rate drop in Region 3 on 2026-03-31?",
+    "role": "operations_analyst",
     "expected_route": "structured_only",
     "expected_metric": "delivery_success_rate",
     "expected_region": "Region 3",
     "expected_needs_citation": true,
-    "expected_min_trace_steps": 4
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "fresh",
+    "expected_min_blocked_sources": 0
   },
   {
     "question": "What does the escalation policy say about low-confidence cases?",
+    "role": "operations_analyst",
     "expected_route": "documents_only",
     "expected_metric": null,
     "expected_region": null,
     "expected_needs_citation": true,
-    "expected_min_trace_steps": 3
+    "expected_min_trace_steps": 3,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0
   },
   {
     "question": "Why did delivery success rate drop in Region 3 and what does the SOP suggest we do next?",
+    "role": "operations_analyst",
     "expected_route": "hybrid",
     "expected_metric": "delivery_success_rate",
     "expected_region": "Region 3",
     "expected_needs_citation": true,
-    "expected_min_trace_steps": 4
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "fresh",
+    "expected_min_blocked_sources": 0
   },
   {
     "question": "Explain the return rate spike in Region 4.",
+    "role": "operations_analyst",
     "expected_route": "structured_only",
     "expected_metric": "return_rate",
     "expected_region": "Region 4",
     "expected_needs_citation": true,
-    "expected_min_trace_steps": 4
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "lagging",
+    "expected_min_blocked_sources": 0
+  },
+  {
+    "question": "Is on time delivery rate in Region 2 reliable right now?",
+    "role": "operations_analyst",
+    "expected_route": "structured_only",
+    "expected_metric": "on_time_delivery_rate",
+    "expected_region": "Region 2",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "stale",
+    "expected_min_blocked_sources": 0
+  },
+  {
+    "question": "What does the incident review note say for Region 3?",
+    "role": "regional_manager",
+    "expected_route": "hybrid",
+    "expected_metric": null,
+    "expected_region": "Region 3",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 1
+  },
+  {
+    "question": "Show shipment failure details for Region 3 and summarize the cause.",
+    "role": "exec_viewer",
+    "expected_route": "structured_only",
+    "expected_metric": null,
+    "expected_region": "Region 3",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 1
+  },
+  {
+    "question": "How should we handle Region 3?",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": null,
+    "expected_region": "Region 3",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0
   }
 ]
-

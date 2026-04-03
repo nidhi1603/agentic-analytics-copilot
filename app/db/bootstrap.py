@@ -17,18 +17,23 @@ CREATE_TABLE_STATEMENTS = [
         metric_target DOUBLE,
         anomaly_flag BOOLEAN,
         anomaly_severity VARCHAR,
-        notes VARCHAR
+        notes VARCHAR,
+        data_as_of TIMESTAMP,
+        freshness_status VARCHAR,
+        completeness_pct DOUBLE
     )
     """,
     """
     CREATE TABLE IF NOT EXISTS shipment_events (
         event_id BIGINT,
         event_date DATE,
+        ingestion_time TIMESTAMP,
         region VARCHAR,
         shipment_id VARCHAR,
         event_type VARCHAR,
         failure_reason VARCHAR,
-        delivery_hours DOUBLE
+        delivery_hours DOUBLE,
+        source_system VARCHAR
     )
     """,
     """
@@ -39,7 +44,8 @@ CREATE_TABLE_STATEMENTS = [
         incident_type VARCHAR,
         severity VARCHAR,
         status VARCHAR,
-        summary VARCHAR
+        summary VARCHAR,
+        source_team VARCHAR
     )
     """,
     """
@@ -48,15 +54,36 @@ CREATE_TABLE_STATEMENTS = [
         metric_owner VARCHAR,
         metric_grain VARCHAR,
         metric_definition VARCHAR,
-        investigation_hint VARCHAR
+        investigation_hint VARCHAR,
+        definition_quality VARCHAR
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS access_policies (
+        role VARCHAR,
+        resource_type VARCHAR,
+        resource_name VARCHAR,
+        permission VARCHAR,
+        restriction_reason VARCHAR
+    )
+    """,
+]
+
+TABLES = [
+    "daily_kpis",
+    "shipment_events",
+    "incident_log",
+    "metric_definitions",
+    "access_policies",
 ]
 
 
 def initialize_database() -> None:
     connection = get_connection()
     try:
+        for table_name in TABLES:
+            connection.execute(f"DROP TABLE IF EXISTS {table_name}")
+
         for statement in CREATE_TABLE_STATEMENTS:
             connection.execute(statement)
 
@@ -64,6 +91,7 @@ def initialize_database() -> None:
         _load_csv_into_table(connection, "shipment_events")
         _load_csv_into_table(connection, "incident_log")
         _load_csv_into_table(connection, "metric_definitions")
+        _load_csv_into_table(connection, "access_policies")
     finally:
         connection.close()
 
@@ -79,4 +107,3 @@ def _load_csv_into_table(connection, table_name: str) -> None:
         """,
         [str(csv_path)],
     )
-

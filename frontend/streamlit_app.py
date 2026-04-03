@@ -14,6 +14,11 @@ EXAMPLE_QUESTIONS = [
     "Why did delivery success rate drop in Region 3 and what does the SOP suggest we do next?",
     "Explain the return rate spike in Region 4.",
 ]
+ROLES = [
+    "operations_analyst",
+    "regional_manager",
+    "exec_viewer",
+]
 
 
 def main() -> None:
@@ -39,6 +44,8 @@ def initialize_session_state() -> None:
     st.session_state.setdefault("last_payload", None)
     st.session_state.setdefault("health_payload", None)
     st.session_state.setdefault("backend_status", "Unknown")
+    st.session_state.setdefault("role", "operations_analyst")
+    st.session_state.setdefault("backend_url", DEFAULT_BACKEND_URL)
 
 
 def inject_styles() -> None:
@@ -83,16 +90,35 @@ def inject_styles() -> None:
             font-family: "IBM Plex Sans", sans-serif;
         }
 
-        section[data-testid="stSidebar"] [data-testid="stTextInput"] input {
-            background: rgba(255, 255, 255, 0.08) !important;
+        section[data-testid="stSidebar"] label,
+        section[data-testid="stSidebar"] p,
+        section[data-testid="stSidebar"] span,
+        section[data-testid="stSidebar"] div {
             color: #f8f6f1 !important;
-            border: 1px solid rgba(255, 255, 255, 0.14) !important;
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stTextInput"] input {
+            background: rgba(12, 20, 34, 0.92) !important;
+            color: #f8f6f1 !important;
+            -webkit-text-fill-color: #f8f6f1 !important;
+            border: 1px solid rgba(255, 255, 255, 0.18) !important;
             border-radius: 14px !important;
             box-shadow: none !important;
         }
 
         section[data-testid="stSidebar"] [data-testid="stTextInput"] input::placeholder {
             color: rgba(248, 246, 241, 0.55) !important;
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stSelectbox"] > div[data-baseweb="select"] > div {
+            background: rgba(12, 20, 34, 0.92) !important;
+            color: #f8f6f1 !important;
+            border: 1px solid rgba(255, 255, 255, 0.18) !important;
+            border-radius: 14px !important;
+        }
+
+        section[data-testid="stSidebar"] [data-testid="stSelectbox"] * {
+            color: #f8f6f1 !important;
         }
 
         section[data-testid="stSidebar"] [data-testid="stButton"] > button {
@@ -258,6 +284,12 @@ def inject_styles() -> None:
             color: var(--ink);
             font-size: 0.84rem;
             font-weight: 600;
+        }
+
+        .hero-shell .chip {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #f8f1e7;
         }
 
         .result-shell {
@@ -481,11 +513,21 @@ def inject_styles() -> None:
             font-size: 0.84rem;
         }
 
+        .stTabs [data-baseweb="tab-list"] button {
+            color: var(--ink) !important;
+        }
+
+        .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+            color: var(--accent-strong) !important;
+        }
+
         [data-testid="stTextArea"] textarea {
             min-height: 130px;
             border-radius: 18px;
             border: 1px solid rgba(22, 33, 47, 0.12);
             background: rgba(255, 255, 255, 0.86);
+            color: var(--ink) !important;
+            -webkit-text-fill-color: var(--ink) !important;
         }
 
         [data-testid="stButton"] > button {
@@ -532,7 +574,13 @@ def inject_styles() -> None:
 def render_sidebar() -> None:
     st.markdown("### Ops Control Room")
     st.caption("Connect the backend, choose a launch question, and run investigations.")
-    backend_url = st.text_input("Backend URL", value=DEFAULT_BACKEND_URL, key="backend_url")
+    backend_url = st.text_input("Backend URL", key="backend_url")
+    selected_role = st.selectbox(
+        "Viewer Role",
+        options=ROLES,
+        index=ROLES.index(st.session_state.get("role", "operations_analyst")),
+    )
+    st.session_state["role"] = selected_role
     st.markdown(
         "<p class='small-note'>Run the FastAPI service first with "
         "<code>python -m uvicorn app.main:app --reload</code>.</p>",
@@ -585,6 +633,7 @@ def render_hero() -> None:
                 <span class="chip">FastAPI + LangGraph</span>
                 <span class="chip">DuckDB + ChromaDB</span>
                 <span class="chip">Evidence-backed answers</span>
+                <span class="chip">Role-aware access</span>
             </div>
             <div class="hero-grid">
                 <div class="hero-metric">
@@ -625,13 +674,13 @@ def render_control_panel() -> None:
         unsafe_allow_html=True,
     )
 
-    question = st.text_area(
+    st.text_area(
         "Question",
-        value=st.session_state.get("question", EXAMPLE_QUESTIONS[0]),
         key="question",
         label_visibility="collapsed",
         placeholder="Why did delivery success rate drop in Region 3 on 2026-03-31?",
     )
+    question = st.session_state.get("question", "")
 
     ask_col, reset_col = st.columns([4, 1])
     with ask_col:
@@ -639,6 +688,7 @@ def render_control_panel() -> None:
             payload = run_investigation(
                 backend_url=st.session_state.get("backend_url", DEFAULT_BACKEND_URL),
                 question=question,
+                role=st.session_state.get("role", "operations_analyst"),
             )
             if payload:
                 st.session_state["last_payload"] = payload
@@ -717,7 +767,11 @@ def perform_health_check(backend_url: str) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
-def run_investigation(backend_url: str, question: str) -> dict[str, Any] | None:
+def run_investigation(
+    backend_url: str,
+    question: str,
+    role: str,
+) -> dict[str, Any] | None:
     if len(question.strip()) < 5:
         st.warning("Please enter a longer question.")
         return None
@@ -726,7 +780,7 @@ def run_investigation(backend_url: str, question: str) -> dict[str, Any] | None:
         try:
             response = httpx.post(
                 f"{backend_url}/ask",
-                json={"question": question},
+                json={"question": question, "role": role},
                 timeout=60.0,
             )
             response.raise_for_status()
@@ -747,6 +801,13 @@ def render_summary(payload: dict[str, Any]) -> None:
     review_text = "Analyst review required" if payload.get("needs_analyst_review") else "Ready to share"
     citation_count = len(payload.get("citations", []))
     trace_count = len(payload.get("trace", []))
+    blocked_count = len(payload.get("blocked_sources", []))
+    request_id = str(payload.get("request_id", "unknown"))
+    latency_ms = int(payload.get("latency_ms", 0))
+    role = str(payload.get("role", "unknown")).replace("_", " ").title()
+    freshness = str(payload.get("freshness_status", "unknown")).title()
+    completeness = str(payload.get("completeness_status", "unknown")).title()
+    data_as_of = payload.get("data_as_of") or "Unavailable"
 
     answer_col, stats_col = st.columns([2.2, 1.1])
     with answer_col:
@@ -758,6 +819,7 @@ def render_summary(payload: dict[str, Any]) -> None:
                     <div class="chip-row">
                         <span class="status-pill {confidence_class}">Confidence {html.escape(confidence.title())}</span>
                         <span class="status-pill status-review">{html.escape(review_text)}</span>
+                        <span class="status-pill status-ready">{html.escape(role)}</span>
                     </div>
                     <div class="answer-text">{html.escape(payload.get("answer", ""))}</div>
                 </div>
@@ -769,6 +831,16 @@ def render_summary(payload: dict[str, Any]) -> None:
         st.markdown(
             f"""
             <div class="stat-card">
+                <div class="stat-label">Freshness</div>
+                <div class="stat-value">{html.escape(freshness)}</div>
+            </div>
+            <div style="height:0.8rem;"></div>
+            <div class="stat-card">
+                <div class="stat-label">Completeness</div>
+                <div class="stat-value">{html.escape(completeness)}</div>
+            </div>
+            <div style="height:0.8rem;"></div>
+            <div class="stat-card">
                 <div class="stat-label">Citations</div>
                 <div class="stat-value">{citation_count}</div>
             </div>
@@ -779,16 +851,35 @@ def render_summary(payload: dict[str, Any]) -> None:
             </div>
             <div style="height:0.8rem;"></div>
             <div class="stat-card">
-                <div class="stat-label">Escalation</div>
-                <div class="stat-value">{'Yes' if payload.get('needs_analyst_review') else 'No'}</div>
+                <div class="stat-label">Latency</div>
+                <div class="stat-value">{latency_ms} ms</div>
+            </div>
+            <div style="height:0.8rem;"></div>
+            <div class="stat-card">
+                <div class="stat-label">Blocked Sources</div>
+                <div class="stat-value">{blocked_count}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
+    review_reason = payload.get("analyst_review_reason")
+    if review_reason:
+        st.warning(f"Analyst review reason: {review_reason}")
+
+    st.caption(f"Data as of: {data_as_of}")
+    st.caption(f"Request ID: {request_id}")
+
 
 def render_outcome_lists(payload: dict[str, Any]) -> None:
-    causes_col, steps_col = st.columns(2)
+    breakdown = payload.get("confidence_breakdown", [])
+    breakdown_col, causes_col, steps_col = st.columns([1.1, 1, 1])
+    with breakdown_col:
+        render_list_card(
+            "Confidence Breakdown",
+            breakdown,
+            empty_message="No confidence rationale was returned.",
+        )
     with causes_col:
         render_list_card("Likely Causes", payload.get("likely_causes", []), empty_message="No likely causes returned.")
     with steps_col:
@@ -837,6 +928,12 @@ def render_citations(payload: dict[str, Any]) -> None:
             """,
             unsafe_allow_html=True,
         )
+
+    blocked_sources = payload.get("blocked_sources", [])
+    if blocked_sources:
+        st.markdown("<div class='section-title'>Blocked Sources</div>", unsafe_allow_html=True)
+        for item in blocked_sources:
+            st.error(item)
 
 
 def render_evidence_summary(payload: dict[str, Any]) -> None:

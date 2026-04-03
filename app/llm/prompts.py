@@ -9,12 +9,20 @@ def build_investigation_prompt(state: WorkflowState) -> str:
         "If evidence is incomplete or conflicting, lower confidence and require analyst review.",
         "",
         f"User question: {state['question']}",
+        f"Request role: {state['role']}",
         "",
         "Evidence summary:",
         state.get("evidence_summary", "No evidence summary available."),
         "",
         "Structured evidence:",
     ]
+
+    for kpi in state.get("kpi_summary", []):
+        lines.append(
+            f"- KPI summary | date={kpi.metric_date} | region={kpi.region} | "
+            f"metric={kpi.metric_name} | value={kpi.metric_value} | target={kpi.metric_target} | "
+            f"freshness={kpi.freshness_status} | completeness={kpi.completeness_pct} | notes={kpi.notes}"
+        )
 
     for kpi in state.get("anomaly_report", []):
         lines.append(
@@ -53,9 +61,13 @@ def build_investigation_prompt(state: WorkflowState) -> str:
         )
 
     lines.append("")
+    lines.append("Blocked or restricted sources:")
+    for item in state.get("blocked_sources", []):
+        lines.append(f"- Restricted source | {item}")
+
+    lines.append("")
     lines.append(
-        "Return a grounded JSON object with: answer, likely_causes, recommended_next_steps, confidence, needs_analyst_review."
+        "Return a grounded JSON object with: answer, likely_causes, recommended_next_steps, confidence, needs_analyst_review, analyst_review_reason."
     )
 
     return "\n".join(lines)
-
