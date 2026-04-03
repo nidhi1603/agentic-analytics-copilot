@@ -19,33 +19,18 @@ The system accepts a business investigation question through a FastAPI endpoint,
 
 ## Architecture
 
-```text
-User / API Client
-        |
-        v
-     FastAPI
-        |
-        v
- LangGraph Workflow
-        |
-        +--> Structured tools over DuckDB
-        |      - KPI summaries
-        |      - anomaly reports
-        |      - incident lookup
-        |      - failure breakdowns
-        |
-        +--> Document retrieval over ChromaDB
-               - SOPs
-               - runbooks
-               - policies
-               - incident notes
-               - metric definitions
-        |
-        v
-  LLM Answer Synthesis
-        |
-        v
- Confidence + Citations + Trace + Analyst Review Decision
+```mermaid
+flowchart LR
+    U["User / Recruiter Demo"] --> S["Streamlit UI"]
+    U --> A["FastAPI API"]
+    S --> A
+    A --> G["LangGraph Workflow"]
+    G --> T["Structured Tools"]
+    G --> R["Document Retrieval"]
+    T --> D["DuckDB<br/>daily_kpis / shipment_events / incident_log / metric_definitions"]
+    R --> C["ChromaDB<br/>SOPs / runbooks / policies / incident notes"]
+    G --> L["LLM Answer Synthesis"]
+    L --> O["Grounded Response<br/>answer + citations + confidence + trace + analyst review"]
 ```
 
 ## Core Features
@@ -56,6 +41,7 @@ User / API Client
 - Grounded answer generation with citations
 - Confidence labels and `needs_analyst_review` fallback
 - Workflow trace endpoint for debugging orchestration decisions
+- Streamlit demo UI for recruiter-friendly exploration
 - Local evaluation harness for route correctness, citations, trace depth, and answer presence
 - Dockerized local startup path
 
@@ -66,6 +52,11 @@ User / API Client
 - `Python`
 - `FastAPI`
 - `Pydantic`
+
+### Demo UI
+
+- `Streamlit`
+- `httpx`
 
 ### Structured Data
 
@@ -125,6 +116,18 @@ It also includes unstructured business knowledge:
 - `GET /health`: health check and runtime config visibility
 - `POST /ask`: primary investigation endpoint
 - `GET /debug/trace`: inspect routing and workflow trace for a question
+
+## Demo Experience
+
+The repo now includes a simple Streamlit app in `frontend/streamlit_app.py` that calls the FastAPI backend and renders:
+
+- answer summary
+- confidence and analyst-review status
+- likely causes
+- recommended next steps
+- citations
+- workflow trace
+- raw JSON response
 
 ## Example Questions
 
@@ -189,6 +192,8 @@ data/
   vector/           # ChromaDB persistence
 evals/
   datasets/         # evaluation questions
+frontend/
+  streamlit_app.py  # lightweight demo UI
 tests/              # unit and workflow tests
 ```
 
@@ -234,7 +239,15 @@ python scripts/index_documents.py
 python -m uvicorn app.main:app --reload
 ```
 
-### 6. Open API docs
+### 6. Run the Streamlit demo
+
+In a second terminal:
+
+```bash
+streamlit run frontend/streamlit_app.py
+```
+
+### 7. Open the app surfaces
 
 Visit:
 
@@ -242,7 +255,13 @@ Visit:
 http://127.0.0.1:8000/docs
 ```
 
-### 7. Run tests and evals
+And for Streamlit:
+
+```text
+http://localhost:8501
+```
+
+### 8. Run tests and evals
 
 ```bash
 python -m pytest
@@ -268,6 +287,7 @@ The `POST /ask` endpoint returns:
 - Eval coverage is still a starter harness rather than a large regression suite
 - Confidence logic is heuristic and should be calibrated further
 - Retrieval currently uses a simple chunking strategy without reranking
+- The vector index is generated locally and intentionally excluded from source control
 - Access control, auth, and role-based permissions are not implemented yet
 - The current interface is API-first; a polished analyst-facing UI is the next step
 
