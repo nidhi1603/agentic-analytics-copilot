@@ -1,0 +1,35 @@
+[
+  {
+    "question": "Why did delivery success rate drop in Region 3 on 2026-03-31?",
+    "expected_route": "structured_only",
+    "expected_metric": "delivery_success_rate",
+    "expected_region": "Region 3",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4
+  },
+  {
+    "question": "What does the escalation policy say about low-confidence cases?",
+    "expected_route": "documents_only",
+    "expected_metric": null,
+    "expected_region": null,
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 3
+  },
+  {
+    "question": "Why did delivery success rate drop in Region 3 and what does the SOP suggest we do next?",
+    "expected_route": "hybrid",
+    "expected_metric": "delivery_success_rate",
+    "expected_region": "Region 3",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4
+  },
+  {
+    "question": "Explain the return rate spike in Region 4.",
+    "expected_route": "structured_only",
+    "expected_metric": "return_rate",
+    "expected_region": "Region 4",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4
+  }
+]
+

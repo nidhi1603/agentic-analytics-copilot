@@ -1,0 +1,5 @@
+metric_name,metric_owner,metric_grain,metric_definition,investigation_hint
+delivery_success_rate,Operations Analytics,region-day,Delivered shipments divided by attempted shipments for a region and day,Check failed deliveries and carrier disruptions first
+on_time_delivery_rate,Logistics Performance,region-day,Shipments delivered within SLA divided by total delivered shipments,Review weather delays route congestion and backlog events
+return_rate,Customer Experience,region-day,Returned shipments divided by completed deliveries,Inspect packaging issues quality incidents and customer complaint spikes
+
