@@ -291,6 +291,19 @@ The `POST /ask` endpoint returns:
 - Access control, auth, and role-based permissions are not implemented yet
 - The current interface is API-first; a polished analyst-facing UI is the next step
 
+## Production Considerations
+
+In a real enterprise setting, the AI workflow should not sit directly on top of raw operational logs. A production version would usually place the agent on top of curated, quality-checked serving tables and documented business knowledge.
+
+Key production concerns:
+
+- raw source data is often incomplete, duplicated, delayed, or inconsistent
+- late-arriving events can make current-day metrics temporarily unreliable
+- freshness and completeness metadata should be propagated into confidence scoring
+- low-quality or stale data should lower confidence and increase analyst-review routing
+- upstream schema changes and broken joins should be detected before data reaches the AI layer
+- the system should automate triage and evidence gathering, not assume every operational decision can be safely auto-executed
+
 ## Why This Project Is Useful For Applied AI Roles
 
 This project demonstrates:
