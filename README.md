@@ -15,7 +15,7 @@ The goal is not to build a generic chatbot. The goal is to build a grounded, tra
 
 ## What The System Does
 
-The system accepts a business investigation question through a FastAPI endpoint, routes the request through a LangGraph workflow, gathers evidence from both DuckDB tables and ChromaDB-retrieved documents, and produces a grounded answer with citations, confidence, trace steps, and analyst-review fallback.
+The system accepts a business investigation question through a versioned FastAPI API, authenticates the caller with a bearer token, routes the request through a LangGraph workflow, gathers evidence from both DuckDB tables and hybrid-retrieved ChromaDB documents, and produces a grounded answer with citations, confidence, trace steps, cache metadata, and analyst-review fallback.
 
 ## Demo Preview
 
@@ -47,15 +47,17 @@ The workflow trace makes the orchestration path visible step by step, which is e
 ```mermaid
 flowchart LR
     U["User / Recruiter Demo"] --> S["Streamlit UI"]
-    U --> A["FastAPI API"]
+    U --> A["FastAPI API (/v1)"]
     S --> A
-    A --> G["LangGraph Workflow"]
+    A --> AU["Bearer Auth + Rate Limit"]
+    AU --> G["LangGraph Workflow"]
     G --> T["Structured Tools"]
-    G --> R["Document Retrieval"]
+    G --> R["Hybrid Retrieval<br/>vector + BM25 + reranker"]
     T --> D["DuckDB<br/>daily_kpis / shipment_events / incident_log / metric_definitions"]
     R --> C["ChromaDB<br/>SOPs / runbooks / policies / incident notes"]
+    G --> K["Semantic Cache"]
     G --> L["LLM Answer Synthesis"]
-    L --> O["Grounded Response<br/>answer + citations + confidence + trace + analyst review"]
+    L --> O["Grounded Response<br/>answer + citations + confidence + trace + analyst review + cache status"]
 ```
 
 ## Core Features
@@ -64,14 +66,17 @@ flowchart LR
 - Raw-to-curated data pipeline that turns messy operational feeds into agent-ready serving tables
 - Data quality checks for duplicates, normalization, metric coverage, freshness values, completeness bounds, and policy uniqueness
 - Retrieval over metric definitions, SOPs, runbooks, policies, and incident notes
+- Hybrid document retrieval using vector search, BM25 keyword scoring, reciprocal rank fusion, and reranking
 - LangGraph-based routing for structured-only, document-only, and hybrid questions
 - Role-aware access control across structured and unstructured sources
+- Versioned `/v1` API routes with bearer-token auth and request rate limiting
 - Grounded answer generation with citations
 - Confidence labels, confidence breakdown, analyst-review reasons, and `needs_analyst_review` fallback
 - Freshness and completeness-aware investigation outputs
+- Semantic cache with cache hit/miss metadata for repeated questions
 - Workflow trace endpoint for debugging orchestration decisions
 - Streamlit demo UI for recruiter-friendly exploration
-- Local evaluation harness for route correctness, citations, trace depth, and answer presence
+- Local evaluation harness for route correctness, citations, trace depth, freshness, blocked-source expectations, and retrieval quality
 - Dockerized local startup path
 
 ## Tech Stack
@@ -96,6 +101,8 @@ flowchart LR
 
 - `ChromaDB`
 - OpenAI embeddings via `text-embedding-3-small`
+- `rank-bm25`
+- sentence-transformers cross-encoder reranker
 
 ### Orchestration and LLM
 
@@ -105,8 +112,10 @@ flowchart LR
 ### Reliability and Evaluation
 
 - structured logging
+- semantic cache
 - `pytest`
 - custom eval harness in `evals/run_eval.py`
+- optional LLM-as-judge scoring in `evals/llm_judge.py`
 
 ### Packaging
 
@@ -143,22 +152,30 @@ It also includes unstructured business knowledge:
 
 ## Request Flow
 
-1. User submits a business question to `POST /ask`
+1. User submits a business question to `POST /v1/ask`
 2. Raw bronze feeds are normalized into curated CSV serving tables through `scripts/build_curated_data.py`
 3. Data quality checks validate the curated layer before DuckDB is rebuilt
-4. Request role determines which structured resources and doc groups are allowed
-5. Router classifies the question as structured, document, or hybrid
-6. Workflow extracts region and metric where possible
-7. Structured tools fetch KPI, anomaly, incident, and failure evidence from DuckDB only if access policy allows it
-8. Retrieval layer fetches relevant document chunks from ChromaDB and filters restricted sources
-9. LLM synthesizes an answer strictly from gathered evidence
-10. Guardrails attach confidence, confidence breakdown, freshness/completeness status, blocked-source trace, citations, and analyst-review fallback
+4. Bearer-token auth determines the caller role and rate limiting protects the API surface
+5. Request role determines which structured resources and doc groups are allowed
+6. Semantic cache checks whether a highly similar question was answered recently for the same role
+7. Router classifies the question as structured, document, or hybrid
+8. Workflow extracts region and metric where possible
+9. Structured tools fetch KPI, anomaly, incident, and failure evidence from DuckDB only if access policy allows it
+10. Retrieval layer fetches document candidates from ChromaDB, merges vector and keyword rankings, reranks the fused result set, and filters restricted sources
+11. LLM synthesizes an answer strictly from gathered evidence
+12. Guardrails attach confidence, confidence breakdown, freshness/completeness status, blocked-source trace, citations, cache metadata, and analyst-review fallback
 
 ## API Endpoints
 
-- `GET /health`: health check and runtime config visibility
-- `POST /ask`: primary investigation endpoint
-- `GET /debug/trace`: inspect routing and workflow trace for a question
+- `GET /v1/health`: health check and runtime config visibility
+- `POST /v1/ask`: primary investigation endpoint
+- `GET /v1/debug/trace`: inspect routing and workflow trace for a question
+
+Direct API calls now require a bearer token. The local Streamlit demo generates demo tokens automatically based on the selected role. If you want to test the API manually, you can mint a local demo token with:
+
+```bash
+python -c "from app.core.auth import create_demo_token; print(create_demo_token('operations_analyst'))"
+```
 
 ## Demo Experience
 
@@ -175,6 +192,7 @@ The repo now includes a simple Streamlit app in `frontend/streamlit_app.py` that
 - blocked sources
 - workflow trace
 - request ID and latency
+- cache status
 - raw JSON response
 
 ## Example Questions
@@ -199,7 +217,7 @@ This project includes two layers of quality checks:
 
 Current local result:
 
-- `17/17` tests passing
+- `24/24` tests passing
 
 ### Starter eval harness
 
@@ -212,39 +230,46 @@ The eval harness in `evals/run_eval.py` checks:
 - answer presence
 - freshness detection
 - blocked-source expectations by role
+- retrieval precision and recall against gold doc-group labels
+- optional LLM-as-judge scoring for faithfulness, completeness, and citation accuracy
 
 Current local starter result:
 
 | Metric | Result |
 |---|---|
-| Eval cases | 8 |
-| Average score | 1.0 |
-| Coverage | route, trace, citations, freshness, blocked-source handling, answer presence |
+| Eval cases | 31 |
+| Test suite | 24/24 passing |
+| Coverage | route, trace, citations, freshness, blocked-source handling, answer presence, retrieval precision/recall |
 
-This is intentionally a small MVP eval set, not a claim of full production readiness.
+The eval runner also supports a minimum-score gate through `EVAL_MIN_AVG_SCORE`, which is used by CI when `OPENAI_API_KEY` is configured as a repository secret.
 
 ## Project Structure
 
 ```text
 app/
-  api/              # FastAPI routes
-  core/             # config and logging
+  api/
+    v1/             # versioned FastAPI routes
+  core/             # config, auth, caching, and logging
   db/               # DuckDB setup
   llm/              # prompts and answer synthesis
   orchestration/    # LangGraph workflow
-  retrieval/        # chunking and ChromaDB access
+  retrieval/        # chunking, hybrid retrieval, and reranking
   schemas/          # request/response models
   services/         # business logic
   tools/            # agent-callable tools
 data/
+  cache/            # local semantic cache SQLite file (runtime-generated, gitignored)
   raw/              # messy bronze-style feeds used to rebuild curated sources
   docs/             # SOPs, runbooks, policies, notes
   structured/       # source CSVs and DuckDB file
   vector/           # ChromaDB persistence
 evals/
-  datasets/         # evaluation questions
+  datasets/         # evaluation questions and gold retrieval labels
+  llm_judge.py      # optional judge scoring
 frontend/
   streamlit_app.py  # lightweight demo UI
+.github/
+  workflows/        # CI checks
 tests/              # unit and workflow tests
 ```
 
@@ -325,7 +350,7 @@ python evals/run_eval.py
 
 ## Sample Output Shape
 
-The `POST /ask` endpoint returns:
+The `POST /v1/ask` endpoint returns:
 
 - `answer`
 - `role`
@@ -344,15 +369,16 @@ The `POST /ask` endpoint returns:
 - `completeness_status`
 - `request_id`
 - `latency_ms`
+- `cache_status`
 
 ## Limitations
 
 - The current dataset is synthetic and intentionally small, even though it now includes a raw-to-curated simulation layer
-- Eval coverage is still a starter harness rather than a large regression suite
+- Eval coverage is much stronger than the original starter harness, but it is still not a full production regression suite
 - Confidence logic is heuristic and should be calibrated further
-- Retrieval currently uses a simple chunking strategy without reranking
+- The reranker and hybrid retrieval stack are optimized for local prototyping, not for large-scale production latency budgets yet
 - The vector index is generated locally and intentionally excluded from source control
-- Role-aware access is implemented, but real authentication and identity-aware authorization are still missing
+- Auth is currently a local bearer-token demo flow, not an external identity provider or SSO integration
 - The current interface is a polished demo UI, not a fully deployed internal product
 
 ## Production Considerations
@@ -381,9 +407,9 @@ This project demonstrates:
 
 ## Future Work
 
-- React-based multi-page analyst workspace with auth and richer state management
+- Langfuse observability for token, cost, and latency tracing
+- cost dashboard in the demo UI
+- async tool execution and streaming response endpoint
+- deployed live environment with CI-driven eval gates
 - richer SQL drafting and deeper investigation mode
-- larger eval dataset with faithfulness and citation scoring
-- prompt and retrieval regression tracking
-- role-based views for analysts vs managers
 - dashboard integration or incident-ticket integration

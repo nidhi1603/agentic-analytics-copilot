@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 from app.core.logging import configure_logging
@@ -117,11 +118,15 @@ def main() -> None:
     configure_logging()
     results = [evaluate_case(case) for case in load_eval_cases()]
     average_score = round(sum(item["score"] for item in results) / len(results), 2)
+    threshold_raw = os.getenv("EVAL_MIN_AVG_SCORE")
+    threshold = float(threshold_raw) if threshold_raw else None
 
     print("Evaluation Summary")
     print("==================")
     print(f"Cases: {len(results)}")
     print(f"Average score: {average_score}")
+    if threshold is not None:
+        print(f"Required minimum score: {threshold}")
     print("")
 
     for result in results:
@@ -133,6 +138,11 @@ def main() -> None:
         print(f"LLM judge: {result['llm_judge']}")
         print(f"Checks: {result['checks']}")
         print("")
+
+    if threshold is not None and average_score < threshold:
+        raise SystemExit(
+            f"Average eval score {average_score} is below required threshold {threshold}."
+        )
 
 
 if __name__ == "__main__":
