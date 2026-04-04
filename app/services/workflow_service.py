@@ -1,13 +1,22 @@
+import asyncio
 from time import perf_counter
 from uuid import uuid4
 
 from app.core.cache import load_cached_response, save_cached_response
 from app.core.logging import get_logger
+from app.core.observability import record_request_metric
 from app.orchestration.graph import run_investigation_workflow
 from app.schemas.ask import AskResponse
 
 
 logger = get_logger(__name__)
+
+
+def _invoke_workflow(question: str, role: str, request_id: str):
+    try:
+        return run_investigation_workflow(question, role, request_id=request_id)
+    except TypeError:
+        return run_investigation_workflow(question, role)
 
 
 def run_question_workflow(question: str, role: str) -> AskResponse:
@@ -30,9 +39,31 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
             role,
             latency_ms,
         )
+        record_request_metric(
+            request_id=request_id,
+            role=role,
+            question=question,
+            confidence=response.confidence,
+            cache_status=response.cache_status,
+            latency_ms=latency_ms,
+            freshness_status=response.freshness_status,
+            completeness_status=response.completeness_status,
+            blocked_sources_count=len(response.blocked_sources),
+            trace_steps=len(response.trace),
+            citations_count=len(response.citations),
+            llm_observability={
+                "provider": "semantic_cache",
+                "model": "semantic_cache",
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "estimated_cost_usd": 0.0,
+                "llm_latency_ms": 0,
+            },
+        )
         return response
     try:
-        state = run_investigation_workflow(question, role)
+        state = _invoke_workflow(question, role, request_id)
         synthesized = state["synthesized_answer"]
         latency_ms = int((perf_counter() - started_at) * 1000)
         response = AskResponse(
@@ -56,6 +87,20 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
             completeness_status=state.get("completeness_status", "unknown"),
         )
         save_cached_response(question, role, response)
+        record_request_metric(
+            request_id=request_id,
+            role=role,
+            question=question,
+            confidence=response.confidence,
+            cache_status=response.cache_status,
+            latency_ms=latency_ms,
+            freshness_status=response.freshness_status,
+            completeness_status=response.completeness_status,
+            blocked_sources_count=len(response.blocked_sources),
+            trace_steps=len(response.trace),
+            citations_count=len(response.citations),
+            llm_observability=state.get("llm_observability"),
+        )
         logger.info(
             "workflow_completed request_id=%s role=%s confidence=%s needs_review=%s trace_steps=%s blocked_sources=%s latency_ms=%s cache_status=%s",
             request_id,
@@ -71,7 +116,7 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
     except Exception as exc:
         latency_ms = int((perf_counter() - started_at) * 1000)
         logger.exception("workflow_failed request_id=%s error=%s", request_id, exc)
-        return AskResponse(
+        response = AskResponse(
             request_id=request_id,
             latency_ms=latency_ms,
             cache_status="miss",
@@ -97,3 +142,31 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
             freshness_status="unknown",
             completeness_status="unknown",
         )
+        record_request_metric(
+            request_id=request_id,
+            role=role,
+            question=question,
+            confidence=response.confidence,
+            cache_status=response.cache_status,
+            latency_ms=latency_ms,
+            freshness_status=response.freshness_status,
+            completeness_status=response.completeness_status,
+            blocked_sources_count=0,
+            trace_steps=len(response.trace),
+            citations_count=0,
+            llm_observability={
+                "provider": "workflow_failure",
+                "model": "workflow_failure",
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "estimated_cost_usd": 0.0,
+                "llm_latency_ms": 0,
+                "error": str(exc),
+            },
+        )
+        return response
+
+
+async def run_question_workflow_async(question: str, role: str) -> AskResponse:
+    return await asyncio.to_thread(run_question_workflow, question, role)

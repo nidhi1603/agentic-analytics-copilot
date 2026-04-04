@@ -1,20 +1,33 @@
 import json
+from time import perf_counter
 
 from openai import OpenAI
 
 from app.core.config import get_settings
+from app.core.observability import (
+    estimate_openai_cost,
+    log_langfuse_generation,
+)
 from app.llm.prompts import build_investigation_prompt
 from app.orchestration.state import WorkflowState
 from app.schemas.answer import SynthesizedAnswer
 
 
 def synthesize_answer(state: WorkflowState) -> SynthesizedAnswer:
+    answer, _ = synthesize_answer_with_metadata(state)
+    return answer
+
+
+def synthesize_answer_with_metadata(
+    state: WorkflowState,
+) -> tuple[SynthesizedAnswer, dict]:
     settings = get_settings()
     if not settings.openai_api_key:
-        return fallback_synthesized_answer(state)
+        return fallback_synthesized_answer(state), build_fallback_observability("missing_api_key")
 
     client = OpenAI(api_key=settings.openai_api_key)
     prompt = build_investigation_prompt(state)
+    started_at = perf_counter()
 
     response = client.chat.completions.create(
         model=settings.openai_chat_model,
@@ -27,10 +40,34 @@ def synthesize_answer(state: WorkflowState) -> SynthesizedAnswer:
             {"role": "user", "content": prompt},
         ],
     )
+    llm_latency_ms = int((perf_counter() - started_at) * 1000)
 
     content = response.choices[0].message.content or "{}"
     parsed = json.loads(content)
-    return SynthesizedAnswer.model_validate(parsed)
+    synthesized = SynthesizedAnswer.model_validate(parsed)
+    usage = {
+        "provider": "openai",
+        "model": settings.openai_chat_model,
+        "prompt_tokens": int(getattr(response.usage, "prompt_tokens", 0) or 0),
+        "completion_tokens": int(getattr(response.usage, "completion_tokens", 0) or 0),
+        "total_tokens": int(getattr(response.usage, "total_tokens", 0) or 0),
+        "llm_latency_ms": llm_latency_ms,
+    }
+    usage["estimated_cost_usd"] = estimate_openai_cost(
+        settings.openai_chat_model,
+        usage["prompt_tokens"],
+        usage["completion_tokens"],
+    )
+    log_langfuse_generation(
+        request_id=state.get("request_id"),
+        role=state.get("role"),
+        question=state.get("question"),
+        prompt=prompt,
+        model=settings.openai_chat_model,
+        usage=usage,
+        output=synthesized.answer,
+    )
+    return synthesized, usage
 
 
 def fallback_synthesized_answer(state: WorkflowState) -> SynthesizedAnswer:
@@ -78,3 +115,16 @@ def fallback_synthesized_answer(state: WorkflowState) -> SynthesizedAnswer:
         needs_analyst_review=True,
         analyst_review_reason="This fallback path is conservative and keeps an analyst in the loop.",
     )
+
+
+def build_fallback_observability(reason: str) -> dict:
+    return {
+        "provider": "fallback",
+        "model": "fallback",
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "estimated_cost_usd": 0.0,
+        "llm_latency_ms": 0,
+        "fallback_reason": reason,
+    }

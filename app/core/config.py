@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     reranker_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     semantic_cache_path: str = "data/cache/semantic_cache.sqlite"
     semantic_cache_similarity_threshold: float = 0.95
+    observability_db_path: str = "data/cache/observability.sqlite"
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+    langfuse_host: str = "https://cloud.langfuse.com"
 
     model_config = SettingsConfigDict(
         env_file=".env",

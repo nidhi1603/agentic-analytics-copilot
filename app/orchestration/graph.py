@@ -54,10 +54,11 @@ def build_investigation_graph():
     return graph.compile()
 
 
-def run_investigation_workflow(question: str, role: str) -> WorkflowState:
+def run_investigation_workflow(question: str, role: str, request_id: str | None = None) -> WorkflowState:
     graph = build_investigation_graph()
     return graph.invoke(
         {
+            "request_id": request_id,
             "question": question,
             "role": role,
             "trace": [],

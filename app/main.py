@@ -8,6 +8,7 @@ from app.api.v1.routes.debug import router as debug_router
 from app.api.v1.routes.health import router as health_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.core.observability import initialize_observability_store
 from app.db.bootstrap import initialize_database
 
 
@@ -18,6 +19,7 @@ settings = get_settings()
 async def lifespan(_app: FastAPI):
     configure_logging()
     initialize_database()
+    initialize_observability_store()
     yield
 
 

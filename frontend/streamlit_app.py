@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import json
 from typing import Any
 
 import httpx
@@ -43,6 +44,7 @@ def main() -> None:
 def initialize_session_state() -> None:
     st.session_state.setdefault("question", EXAMPLE_QUESTIONS[0])
     st.session_state.setdefault("last_payload", None)
+    st.session_state.setdefault("metrics_payload", None)
     st.session_state.setdefault("health_payload", None)
     st.session_state.setdefault("backend_status", "Unknown")
     st.session_state.setdefault("role", "operations_analyst")
@@ -591,6 +593,12 @@ def render_sidebar() -> None:
     if st.button("Check Backend Health", use_container_width=True):
         st.session_state["health_payload"] = perform_health_check(backend_url)
 
+    if st.button("Refresh Ops Metrics", use_container_width=True):
+        st.session_state["metrics_payload"] = fetch_metrics(
+            backend_url=backend_url,
+            role=st.session_state.get("role", "operations_analyst"),
+        )
+
     health_payload = st.session_state.get("health_payload")
     if health_payload:
         if health_payload.get("ok"):
@@ -686,13 +694,19 @@ def render_control_panel() -> None:
     ask_col, reset_col = st.columns([4, 1])
     with ask_col:
         if st.button("Run Investigation", type="primary", use_container_width=True):
+            stream_placeholder = st.empty()
             payload = run_investigation(
                 backend_url=st.session_state.get("backend_url", DEFAULT_BACKEND_URL),
                 question=question,
                 role=st.session_state.get("role", "operations_analyst"),
+                stream_placeholder=stream_placeholder,
             )
             if payload:
                 st.session_state["last_payload"] = payload
+                st.session_state["metrics_payload"] = fetch_metrics(
+                    backend_url=st.session_state.get("backend_url", DEFAULT_BACKEND_URL),
+                    role=st.session_state.get("role", "operations_analyst"),
+                )
     with reset_col:
         if st.button("Reset", use_container_width=True):
             st.session_state["last_payload"] = None
@@ -705,8 +719,8 @@ def render_workspace() -> None:
         return
 
     render_summary(payload)
-    summary_tab, evidence_tab, trace_tab, raw_tab = st.tabs(
-        ["Summary", "Evidence", "Workflow Trace", "Raw Response"]
+    summary_tab, evidence_tab, trace_tab, metrics_tab, raw_tab = st.tabs(
+        ["Summary", "Evidence", "Workflow Trace", "Ops Metrics", "Raw Response"]
     )
 
     with summary_tab:
@@ -718,6 +732,9 @@ def render_workspace() -> None:
 
     with trace_tab:
         render_trace(payload)
+
+    with metrics_tab:
+        render_metrics_dashboard()
 
     with raw_tab:
         st.json(payload)
@@ -768,10 +785,33 @@ def perform_health_check(backend_url: str) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
+def build_auth_headers(role: str) -> dict[str, str]:
+    auth_token = create_demo_token(role=role)
+    return {"Authorization": f"Bearer {auth_token}"}
+
+
+def fetch_metrics(
+    backend_url: str,
+    role: str,
+) -> dict[str, Any] | None:
+    try:
+        response = httpx.get(
+            f"{backend_url}/v1/debug/metrics",
+            headers=build_auth_headers(role),
+            timeout=20.0,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as exc:
+        st.info(f"Ops metrics are not available yet: {exc}")
+        return None
+
+
 def run_investigation(
     backend_url: str,
     question: str,
     role: str,
+    stream_placeholder,
 ) -> dict[str, Any] | None:
     if len(question.strip()) < 5:
         st.warning("Please enter a longer question.")
@@ -779,15 +819,37 @@ def run_investigation(
 
     with st.spinner("Investigating KPI movement and retrieving supporting evidence..."):
         try:
-            auth_token = create_demo_token(role=role)
-            response = httpx.post(
-                f"{backend_url}/v1/ask",
+            assembled_answer = ""
+            current_event = None
+            with httpx.stream(
+                "POST",
+                f"{backend_url}/v1/ask/stream",
                 json={"question": question},
-                headers={"Authorization": f"Bearer {auth_token}"},
+                headers=build_auth_headers(role),
                 timeout=60.0,
-            )
-            response.raise_for_status()
-            return response.json()
+            ) as response:
+                response.raise_for_status()
+                for raw_line in response.iter_lines():
+                    if not raw_line:
+                        continue
+                    if raw_line.startswith("event:"):
+                        current_event = raw_line.split(":", 1)[1].strip()
+                        continue
+                    if not raw_line.startswith("data:"):
+                        continue
+                    payload = json.loads(raw_line.split(":", 1)[1].strip())
+                    if current_event == "status":
+                        stream_placeholder.info(payload.get("message", "Running..."))
+                    elif current_event == "answer_chunk":
+                        assembled_answer += payload.get("token", "")
+                        stream_placeholder.markdown(
+                            f"**Streaming answer preview**\n\n{assembled_answer}"
+                        )
+                    elif current_event == "complete":
+                        stream_placeholder.empty()
+                        return payload
+            st.error("Stream ended before the API returned a final payload.")
+            return None
         except Exception as exc:
             st.error(f"Investigation failed: {exc}")
             return None
@@ -967,6 +1029,51 @@ def render_trace(payload: dict[str, Any]) -> None:
             """,
             unsafe_allow_html=True,
         )
+
+
+def render_metrics_dashboard() -> None:
+    metrics_payload = st.session_state.get("metrics_payload")
+    if not metrics_payload:
+        st.caption("Run an investigation or refresh ops metrics to populate this dashboard.")
+        return
+
+    summary = metrics_payload.get("summary", {})
+    summary_col_1, summary_col_2, summary_col_3, summary_col_4 = st.columns(4)
+    with summary_col_1:
+        st.metric("Requests", summary.get("requests", 0))
+    with summary_col_2:
+        st.metric("Avg latency", f"{summary.get('avg_latency_ms', 0)} ms")
+    with summary_col_3:
+        st.metric("P95 latency", f"{summary.get('p95_latency_ms', 0)} ms")
+    with summary_col_4:
+        st.metric("Cache hit rate", f"{int(summary.get('cache_hit_rate', 0) * 100)}%")
+
+    cost_col_1, cost_col_2, cost_col_3 = st.columns(3)
+    with cost_col_1:
+        st.metric("Total tokens", summary.get("total_tokens", 0))
+    with cost_col_2:
+        st.metric("Total est. cost", f"${summary.get('total_cost_usd', 0.0):.4f}")
+    with cost_col_3:
+        st.metric("Avg est. cost", f"${summary.get('avg_cost_usd', 0.0):.4f}")
+
+    recent_requests = metrics_payload.get("recent_requests", [])
+    if recent_requests:
+        st.markdown("<div class='section-title'>Recent Requests</div>", unsafe_allow_html=True)
+        table_rows = [
+            {
+                "request_id": item.get("request_id"),
+                "role": item.get("role"),
+                "confidence": item.get("confidence"),
+                "latency_ms": item.get("latency_ms"),
+                "cache_status": item.get("cache_status"),
+                "total_tokens": item.get("total_tokens"),
+                "estimated_cost_usd": item.get("estimated_cost_usd"),
+                "freshness_status": item.get("freshness_status"),
+                "blocked_sources_count": item.get("blocked_sources_count"),
+            }
+            for item in recent_requests
+        ]
+        st.dataframe(table_rows, use_container_width=True, hide_index=True)
 
 
 if __name__ == "__main__":

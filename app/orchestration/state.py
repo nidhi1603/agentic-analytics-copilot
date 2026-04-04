@@ -15,6 +15,7 @@ RouteType = Literal["structured_only", "documents_only", "hybrid"]
 
 
 class WorkflowState(TypedDict, total=False):
+    request_id: str
     question: str
     role: str
     route: RouteType
@@ -38,3 +39,4 @@ class WorkflowState(TypedDict, total=False):
     freshness_status: str
     completeness_status: str
     analyst_review_reason: str | None
+    llm_observability: dict

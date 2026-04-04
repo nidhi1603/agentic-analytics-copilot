@@ -1,4 +1,6 @@
-from app.llm.client import synthesize_answer
+from concurrent.futures import ThreadPoolExecutor
+
+from app.llm.client import synthesize_answer_with_metadata
 from app.orchestration.router import classify_route, extract_metric_name, extract_region
 from app.orchestration.state import WorkflowState
 from app.services.answer_service import apply_confidence_guardrails, build_citations
@@ -50,33 +52,51 @@ def gather_structured_evidence_node(state: WorkflowState) -> WorkflowState:
     metric_definition = None
 
     daily_allowed, daily_reason = is_resource_allowed(role, "structured", "daily_kpis")
-    if daily_allowed:
-        allowed_sources.append("structured:daily_kpis")
-        kpi_summary = tool_get_kpi_summary(region=region, metric_name=metric_name, limit=5)
-        anomaly_report = tool_get_anomaly_report(region=region, metric_name=metric_name)
-    else:
-        blocked_sources.append(f"structured:daily_kpis ({daily_reason})")
-
     incident_allowed, incident_reason = is_resource_allowed(role, "structured", "incident_log")
-    if incident_allowed:
-        allowed_sources.append("structured:incident_log")
-        incidents = tool_get_incidents(region=region, limit=5)
-    else:
-        blocked_sources.append(f"structured:incident_log ({incident_reason})")
-
     shipment_allowed, shipment_reason = is_resource_allowed(role, "structured", "shipment_events")
-    if shipment_allowed:
-        allowed_sources.append("structured:shipment_events")
-        failure_breakdown = tool_get_failure_breakdown(region=region)
-    else:
-        blocked_sources.append(f"structured:shipment_events ({shipment_reason})")
-
     metric_allowed, metric_reason = is_resource_allowed(role, "structured", "metric_definitions")
-    if metric_allowed and metric_name is not None:
-        allowed_sources.append("structured:metric_definitions")
-        metric_definition = tool_get_metric_definition(metric_name)
-    elif not metric_allowed:
-        blocked_sources.append(f"structured:metric_definitions ({metric_reason})")
+
+    futures = {}
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        if daily_allowed:
+            allowed_sources.append("structured:daily_kpis")
+            futures["kpi_summary"] = executor.submit(
+                tool_get_kpi_summary, region=region, metric_name=metric_name, limit=5
+            )
+            futures["anomaly_report"] = executor.submit(
+                tool_get_anomaly_report, region=region, metric_name=metric_name
+            )
+        else:
+            blocked_sources.append(f"structured:daily_kpis ({daily_reason})")
+
+        if incident_allowed:
+            allowed_sources.append("structured:incident_log")
+            futures["incidents"] = executor.submit(tool_get_incidents, region=region, limit=5)
+        else:
+            blocked_sources.append(f"structured:incident_log ({incident_reason})")
+
+        if shipment_allowed:
+            allowed_sources.append("structured:shipment_events")
+            futures["failure_breakdown"] = executor.submit(tool_get_failure_breakdown, region=region)
+        else:
+            blocked_sources.append(f"structured:shipment_events ({shipment_reason})")
+
+        if metric_allowed and metric_name is not None:
+            allowed_sources.append("structured:metric_definitions")
+            futures["metric_definition"] = executor.submit(tool_get_metric_definition, metric_name)
+        elif not metric_allowed:
+            blocked_sources.append(f"structured:metric_definitions ({metric_reason})")
+
+        if "kpi_summary" in futures:
+            kpi_summary = futures["kpi_summary"].result()
+        if "anomaly_report" in futures:
+            anomaly_report = futures["anomaly_report"].result()
+        if "incidents" in futures:
+            incidents = futures["incidents"].result()
+        if "failure_breakdown" in futures:
+            failure_breakdown = futures["failure_breakdown"].result()
+        if "metric_definition" in futures:
+            metric_definition = futures["metric_definition"].result()
 
     freshness_status, data_as_of, completeness_status = summarize_data_health(
         anomaly_report or kpi_summary
@@ -171,7 +191,7 @@ def prepare_investigation_context_node(state: WorkflowState) -> WorkflowState:
 
 def synthesize_answer_node(state: WorkflowState) -> WorkflowState:
     trace = list(state.get("trace", []))
-    synthesized = synthesize_answer(state)
+    synthesized, llm_observability = synthesize_answer_with_metadata(state)
     guarded = apply_confidence_guardrails(state, synthesized)
     citations = build_citations(state)
 
@@ -183,6 +203,7 @@ def synthesize_answer_node(state: WorkflowState) -> WorkflowState:
 
     return {
         "synthesized_answer": guarded,
+        "llm_observability": llm_observability,
         "citations": citations,
         "trace": trace,
         "analyst_review_reason": guarded.analyst_review_reason,

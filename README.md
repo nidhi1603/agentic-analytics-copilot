@@ -74,6 +74,8 @@ flowchart LR
 - Confidence labels, confidence breakdown, analyst-review reasons, and `needs_analyst_review` fallback
 - Freshness and completeness-aware investigation outputs
 - Semantic cache with cache hit/miss metadata for repeated questions
+- Request observability persisted to a local metrics store, with optional Langfuse tracing hooks
+- Streaming investigation endpoint for progressive answer delivery
 - Workflow trace endpoint for debugging orchestration decisions
 - Streamlit demo UI for recruiter-friendly exploration
 - Local evaluation harness for route correctness, citations, trace depth, freshness, blocked-source expectations, and retrieval quality
@@ -113,9 +115,11 @@ flowchart LR
 
 - structured logging
 - semantic cache
+- request metrics store backed by SQLite
 - `pytest`
 - custom eval harness in `evals/run_eval.py`
 - optional LLM-as-judge scoring in `evals/llm_judge.py`
+- GitHub Actions CI with an eval gate
 
 ### Packaging
 
@@ -170,6 +174,8 @@ It also includes unstructured business knowledge:
 - `GET /v1/health`: health check and runtime config visibility
 - `POST /v1/ask`: primary investigation endpoint
 - `GET /v1/debug/trace`: inspect routing and workflow trace for a question
+- `GET /v1/debug/metrics`: operational dashboard summary for recent requests
+- `POST /v1/ask/stream`: server-sent events stream for progressive answer delivery
 
 Direct API calls now require a bearer token. The local Streamlit demo generates demo tokens automatically based on the selected role. If you want to test the API manually, you can mint a local demo token with:
 
@@ -193,6 +199,7 @@ The repo now includes a simple Streamlit app in `frontend/streamlit_app.py` that
 - workflow trace
 - request ID and latency
 - cache status
+- ops metrics dashboard with latency, cache hit rate, token totals, and estimated cost
 - raw JSON response
 
 ## Example Questions
@@ -238,7 +245,7 @@ Current local starter result:
 | Metric | Result |
 |---|---|
 | Eval cases | 31 |
-| Test suite | 24/24 passing |
+| Test suite | 26/26 passing |
 | Coverage | route, trace, citations, freshness, blocked-source handling, answer presence, retrieval precision/recall |
 
 The eval runner also supports a minimum-score gate through `EVAL_MIN_AVG_SCORE`, which is used by CI when `OPENAI_API_KEY` is configured as a repository secret.
@@ -270,6 +277,7 @@ frontend/
   streamlit_app.py  # lightweight demo UI
 .github/
   workflows/        # CI checks
+render.yaml         # Render deployment scaffolding for the API and Streamlit demo
 tests/              # unit and workflow tests
 ```
 
@@ -300,6 +308,15 @@ Then add your OpenAI API key to `.env`:
 
 ```env
 OPENAI_API_KEY=sk-...
+JWT_SECRET=replace-me
+```
+
+Langfuse is optional. If you want cloud traces for prompts, tokens, and cost metadata, also set:
+
+```env
+LANGFUSE_PUBLIC_KEY=pk-...
+LANGFUSE_SECRET_KEY=sk-...
+LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
 ### 4. Initialize data stores
@@ -371,6 +388,13 @@ The `POST /v1/ask` endpoint returns:
 - `latency_ms`
 - `cache_status`
 
+The streaming variant at `POST /v1/ask/stream` emits server-sent events in this order:
+
+- `status` when the workflow starts
+- `status` again when the final answer payload is ready
+- repeated `answer_chunk` events for progressive text rendering
+- `complete` with the full JSON payload
+
 ## Limitations
 
 - The current dataset is synthetic and intentionally small, even though it now includes a raw-to-curated simulation layer
@@ -379,6 +403,7 @@ The `POST /v1/ask` endpoint returns:
 - The reranker and hybrid retrieval stack are optimized for local prototyping, not for large-scale production latency budgets yet
 - The vector index is generated locally and intentionally excluded from source control
 - Auth is currently a local bearer-token demo flow, not an external identity provider or SSO integration
+- Langfuse hooks are optional and only activate when Langfuse credentials are configured
 - The current interface is a polished demo UI, not a fully deployed internal product
 
 ## Production Considerations
@@ -407,9 +432,24 @@ This project demonstrates:
 
 ## Future Work
 
-- Langfuse observability for token, cost, and latency tracing
-- cost dashboard in the demo UI
-- async tool execution and streaming response endpoint
+- external identity provider integration instead of demo bearer tokens
+- true parallel document and structured retrieval orchestration at larger scale
 - deployed live environment with CI-driven eval gates
 - richer SQL drafting and deeper investigation mode
 - dashboard integration or incident-ticket integration
+
+## Deployment
+
+The repo now includes [render.yaml](/Users/nidhirajani/Documents/New%20project/render.yaml) with separate services for:
+
+- the FastAPI backend
+- the Streamlit demo UI
+
+To deploy on Render:
+
+1. Create a new Blueprint deployment from the repo.
+2. Add `OPENAI_API_KEY` in the Render environment.
+3. Optionally add Langfuse keys for hosted tracing.
+4. Deploy both services from the generated blueprint.
+
+This environment does not have access to your Render or Railway account, so the live URL still needs to be created from your side after the config is pushed.
