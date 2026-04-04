@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 from typing import Any
 
 import httpx
@@ -9,7 +10,7 @@ import streamlit as st
 
 from app.core.auth import create_demo_token
 
-DEFAULT_BACKEND_URL = "http://127.0.0.1:8000"
+DEFAULT_BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 EXAMPLE_QUESTIONS = [
     "Why did delivery success rate drop in Region 3 on 2026-03-31?",
     "What does the escalation policy say about low-confidence cases?",

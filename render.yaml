@@ -28,3 +28,13 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: BACKEND_URL
+        fromService:
+          type: web
+          name: agentic-analytics-api
+          property: hostport
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: agentic-analytics-api
+          envVarKey: JWT_SECRET
