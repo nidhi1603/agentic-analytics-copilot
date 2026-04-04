@@ -12,6 +12,16 @@ class Settings(BaseSettings):
     openai_embedding_model: str = "text-embedding-3-small"
     openai_api_key: str | None = None
     openai_chat_model: str = "gpt-4.1-mini"
+    jwt_secret: str = "local-demo-secret"
+    jwt_algorithm: str = "HS256"
+    rate_limit_per_minute: int = 10
+    hybrid_search_rrf_k: int = 60
+    hybrid_search_vector_candidates: int = 20
+    hybrid_search_keyword_candidates: int = 20
+    retrieval_final_limit: int = 5
+    reranker_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    semantic_cache_path: str = "data/cache/semantic_cache.sqlite"
+    semantic_cache_similarity_threshold: float = 0.95
 
     model_config = SettingsConfigDict(
         env_file=".env",

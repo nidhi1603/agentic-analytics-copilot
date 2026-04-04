@@ -24,6 +24,7 @@ class Citation(BaseModel):
 class AskResponse(BaseModel):
     request_id: str
     latency_ms: int
+    cache_status: str
     role: str
     answer: str
     confidence: str

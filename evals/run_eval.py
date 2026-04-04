@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from app.core.logging import configure_logging
+from evals.llm_judge import judge_answer
 from app.services.workflow_service import run_question_workflow
 
 
@@ -13,14 +14,66 @@ def load_eval_cases() -> list[dict]:
     return json.loads(DATASET_PATH.read_text(encoding="utf-8"))
 
 
+def infer_doc_group_from_path(source_path: str) -> str | None:
+    normalized = source_path.replace("\\", "/")
+    for group in ["policies", "runbooks", "sops", "incident_notes", "metric_definitions"]:
+        if f"/{group}/" in normalized:
+            return group
+    return None
+
+
+def compute_retrieval_metrics(case: dict, response) -> dict[str, float | bool | None]:
+    gold_doc_groups = case.get("gold_doc_groups", [])
+    if not gold_doc_groups:
+        return {
+            "precision_at_5": None,
+            "recall": None,
+            "retrieval_precision_ok": True,
+            "retrieval_recall_ok": True,
+        }
+
+    retrieved_doc_groups = [
+        infer_doc_group_from_path(citation.source_path)
+        for citation in response.citations
+        if citation.source_type == "document"
+    ]
+    retrieved_doc_groups = [group for group in retrieved_doc_groups if group is not None]
+
+    if not retrieved_doc_groups:
+        return {
+            "precision_at_5": 0.0,
+            "recall": 0.0,
+            "retrieval_precision_ok": False,
+            "retrieval_recall_ok": False,
+        }
+
+    relevant_retrieved = sum(1 for group in retrieved_doc_groups if group in gold_doc_groups)
+    precision_at_5 = round(relevant_retrieved / min(5, len(retrieved_doc_groups)), 2)
+    recall = 1.0 if any(group in gold_doc_groups for group in retrieved_doc_groups) else 0.0
+
+    return {
+        "precision_at_5": precision_at_5,
+        "recall": recall,
+        "retrieval_precision_ok": precision_at_5 >= 0.5,
+        "retrieval_recall_ok": recall >= 1.0,
+    }
+
+
 def evaluate_case(case: dict) -> dict:
     response = run_question_workflow(case["question"], case["role"])
+    retrieved_evidence = "\n".join(
+        [
+            response.evidence_summary,
+            *[citation.snippet for citation in response.citations],
+        ]
+    )
 
     route_in_trace = next(
         (item for item in response.trace if item.startswith("classify_request:")),
         "",
     )
 
+    retrieval_metrics = compute_retrieval_metrics(case, response)
     checks = {
         "citation_present": (len(response.citations) > 0)
         if case["expected_needs_citation"]
@@ -40,6 +93,8 @@ def evaluate_case(case: dict) -> dict:
         "answer_present": len(response.answer.strip()) > 0,
         "freshness_detected": response.freshness_status == case["expected_freshness_status"],
         "blocked_sources_expected": len(response.blocked_sources) >= case["expected_min_blocked_sources"],
+        "retrieval_precision_ok": retrieval_metrics["retrieval_precision_ok"],
+        "retrieval_recall_ok": retrieval_metrics["retrieval_recall_ok"],
     }
 
     passed = sum(1 for value in checks.values() if value)
@@ -53,6 +108,8 @@ def evaluate_case(case: dict) -> dict:
         "needs_analyst_review": response.needs_analyst_review,
         "role": response.role,
         "blocked_sources": response.blocked_sources,
+        "retrieval_metrics": retrieval_metrics,
+        "llm_judge": judge_answer(case["question"], retrieved_evidence, response.answer),
     }
 
 
@@ -72,6 +129,8 @@ def main() -> None:
         print(f"Score: {result['score']}")
         print(f"Confidence: {result['confidence']}")
         print(f"Needs analyst review: {result['needs_analyst_review']}")
+        print(f"Retrieval metrics: {result['retrieval_metrics']}")
+        print(f"LLM judge: {result['llm_judge']}")
         print(f"Checks: {result['checks']}")
         print("")
 

@@ -1,6 +1,7 @@
 from time import perf_counter
 from uuid import uuid4
 
+from app.core.cache import load_cached_response, save_cached_response
 from app.core.logging import get_logger
 from app.orchestration.graph import run_investigation_workflow
 from app.schemas.ask import AskResponse
@@ -13,6 +14,23 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
     request_id = f"req_{uuid4().hex[:12]}"
     started_at = perf_counter()
     logger.info("workflow_started request_id=%s role=%s question=%s", request_id, role, question)
+    cached_response = load_cached_response(question, role)
+    if cached_response is not None:
+        latency_ms = int((perf_counter() - started_at) * 1000)
+        response = cached_response.model_copy(
+            update={
+                "request_id": request_id,
+                "latency_ms": latency_ms,
+                "cache_status": "hit",
+            }
+        )
+        logger.info(
+            "workflow_cache_hit request_id=%s role=%s latency_ms=%s",
+            request_id,
+            role,
+            latency_ms,
+        )
+        return response
     try:
         state = run_investigation_workflow(question, role)
         synthesized = state["synthesized_answer"]
@@ -20,6 +38,7 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
         response = AskResponse(
             request_id=request_id,
             latency_ms=latency_ms,
+            cache_status="miss",
             role=role,
             answer=synthesized.answer,
             confidence=synthesized.confidence,
@@ -36,8 +55,9 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
             freshness_status=state.get("freshness_status", "unknown"),
             completeness_status=state.get("completeness_status", "unknown"),
         )
+        save_cached_response(question, role, response)
         logger.info(
-            "workflow_completed request_id=%s role=%s confidence=%s needs_review=%s trace_steps=%s blocked_sources=%s latency_ms=%s",
+            "workflow_completed request_id=%s role=%s confidence=%s needs_review=%s trace_steps=%s blocked_sources=%s latency_ms=%s cache_status=%s",
             request_id,
             role,
             response.confidence,
@@ -45,6 +65,7 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
             len(response.trace),
             len(response.blocked_sources),
             latency_ms,
+            response.cache_status,
         )
         return response
     except Exception as exc:
@@ -53,6 +74,7 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
         return AskResponse(
             request_id=request_id,
             latency_ms=latency_ms,
+            cache_status="miss",
             role=role,
             answer="The system could not complete the investigation safely.",
             confidence="low",

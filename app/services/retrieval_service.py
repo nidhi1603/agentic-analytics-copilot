@@ -34,6 +34,10 @@ def retrieve_documents(
                 title=item["metadata"]["title"],
                 doc_group=doc_group,
                 distance=item.get("distance"),
+                vector_rank=item.get("vector_rank"),
+                keyword_rank=item.get("keyword_rank"),
+                rerank_score=item.get("rerank_score"),
+                hybrid_score=item.get("hybrid_score"),
             )
         )
 

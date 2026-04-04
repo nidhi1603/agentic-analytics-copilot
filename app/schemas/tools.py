@@ -46,6 +46,10 @@ class RetrievedDocument(BaseModel):
     title: str
     doc_group: str
     distance: float | None = None
+    vector_rank: int | None = None
+    keyword_rank: int | None = None
+    rerank_score: float | None = None
+    hybrid_score: float | None = None
 
 
 class AccessPolicyRecord(BaseModel):

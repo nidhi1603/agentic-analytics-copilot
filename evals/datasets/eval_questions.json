@@ -8,7 +8,8 @@
     "expected_needs_citation": true,
     "expected_min_trace_steps": 4,
     "expected_freshness_status": "fresh",
-    "expected_min_blocked_sources": 0
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": []
   },
   {
     "question": "What does the escalation policy say about low-confidence cases?",
@@ -19,7 +20,8 @@
     "expected_needs_citation": true,
     "expected_min_trace_steps": 3,
     "expected_freshness_status": "unknown",
-    "expected_min_blocked_sources": 0
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["policies"]
   },
   {
     "question": "Why did delivery success rate drop in Region 3 and what does the SOP suggest we do next?",
@@ -30,7 +32,8 @@
     "expected_needs_citation": true,
     "expected_min_trace_steps": 4,
     "expected_freshness_status": "fresh",
-    "expected_min_blocked_sources": 0
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["sops"]
   },
   {
     "question": "Explain the return rate spike in Region 4.",
@@ -41,7 +44,8 @@
     "expected_needs_citation": true,
     "expected_min_trace_steps": 4,
     "expected_freshness_status": "lagging",
-    "expected_min_blocked_sources": 0
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": []
   },
   {
     "question": "Is on time delivery rate in Region 2 reliable right now?",
@@ -52,7 +56,8 @@
     "expected_needs_citation": true,
     "expected_min_trace_steps": 4,
     "expected_freshness_status": "stale",
-    "expected_min_blocked_sources": 0
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": []
   },
   {
     "question": "What does the incident review note say for Region 3?",
@@ -63,7 +68,8 @@
     "expected_needs_citation": true,
     "expected_min_trace_steps": 4,
     "expected_freshness_status": "unknown",
-    "expected_min_blocked_sources": 1
+    "expected_min_blocked_sources": 1,
+    "gold_doc_groups": ["incident_notes"]
   },
   {
     "question": "Show shipment failure details for Region 3 and summarize the cause.",
@@ -74,7 +80,8 @@
     "expected_needs_citation": true,
     "expected_min_trace_steps": 4,
     "expected_freshness_status": "unknown",
-    "expected_min_blocked_sources": 1
+    "expected_min_blocked_sources": 1,
+    "gold_doc_groups": []
   },
   {
     "question": "How should we handle Region 3?",
@@ -85,6 +92,283 @@
     "expected_needs_citation": true,
     "expected_min_trace_steps": 4,
     "expected_freshness_status": "unknown",
-    "expected_min_blocked_sources": 0
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["sops", "runbooks"]
+  },
+  {
+    "question": "What is the definition of delivery success rate?",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": "delivery_success_rate",
+    "expected_region": null,
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 3,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["metric_definitions"]
+  },
+  {
+    "question": "What is the definition of on time delivery rate?",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": "on_time_delivery_rate",
+    "expected_region": null,
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 3,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["metric_definitions"]
+  },
+  {
+    "question": "What is the definition of return rate?",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": "return_rate",
+    "expected_region": null,
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 3,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["metric_definitions"]
+  },
+  {
+    "question": "What does the delivery disruption runbook recommend for Region 3?",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": null,
+    "expected_region": "Region 3",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["runbooks"]
+  },
+  {
+    "question": "What does the delivery disruption runbook recommend for Region 3?",
+    "role": "exec_viewer",
+    "expected_route": "hybrid",
+    "expected_metric": null,
+    "expected_region": "Region 3",
+    "expected_needs_citation": false,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 1,
+    "gold_doc_groups": ["runbooks"]
+  },
+  {
+    "question": "What does the SOP say about anomaly investigation for Region 3?",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": null,
+    "expected_region": "Region 3",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["sops"]
+  },
+  {
+    "question": "What does the SOP say about anomaly investigation for Region 3?",
+    "role": "exec_viewer",
+    "expected_route": "hybrid",
+    "expected_metric": null,
+    "expected_region": "Region 3",
+    "expected_needs_citation": false,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 1,
+    "gold_doc_groups": ["sops"]
+  },
+  {
+    "question": "Why did return rate rise in Region 4 and what policy guidance applies?",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": "return_rate",
+    "expected_region": "Region 4",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "lagging",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["policies"]
+  },
+  {
+    "question": "Why did on time delivery rate change in Region 2 and should we escalate?",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": "on_time_delivery_rate",
+    "expected_region": "Region 2",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "stale",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["policies"]
+  },
+  {
+    "question": "Why did delivery success rate drop in Region 3 this week?",
+    "role": "regional_manager",
+    "expected_route": "structured_only",
+    "expected_metric": "delivery_success_rate",
+    "expected_region": "Region 3",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "fresh",
+    "expected_min_blocked_sources": 1,
+    "gold_doc_groups": []
+  },
+  {
+    "question": "What KPI anomaly happened in Region 4?",
+    "role": "operations_analyst",
+    "expected_route": "structured_only",
+    "expected_metric": null,
+    "expected_region": "Region 4",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "lagging",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": []
+  },
+  {
+    "question": "Explain the metric trend in Region 1.",
+    "role": "operations_analyst",
+    "expected_route": "structured_only",
+    "expected_metric": null,
+    "expected_region": "Region 1",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "fresh",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": []
+  },
+  {
+    "question": "Which incident affected Region 3 and what does the policy say?",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": null,
+    "expected_region": "Region 3",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["policies"]
+  },
+  {
+    "question": "Which incident affected Region 3 and what does the policy say?",
+    "role": "exec_viewer",
+    "expected_route": "hybrid",
+    "expected_metric": null,
+    "expected_region": "Region 3",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 1,
+    "gold_doc_groups": ["policies"]
+  },
+  {
+    "question": "What does the escalation policy say for Region 4 return rate cases?",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": "return_rate",
+    "expected_region": "Region 4",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "lagging",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["policies"]
+  },
+  {
+    "question": "What does the escalation policy say for Region 4 return rate cases?",
+    "role": "exec_viewer",
+    "expected_route": "hybrid",
+    "expected_metric": "return_rate",
+    "expected_region": "Region 4",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "lagging",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["policies"]
+  },
+  {
+    "question": "How should we investigate Region 4 return rate?",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": "return_rate",
+    "expected_region": "Region 4",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "lagging",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["sops", "runbooks"]
+  },
+  {
+    "question": "How should we investigate Region 4 return rate?",
+    "role": "regional_manager",
+    "expected_route": "hybrid",
+    "expected_metric": "return_rate",
+    "expected_region": "Region 4",
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "lagging",
+    "expected_min_blocked_sources": 1,
+    "gold_doc_groups": ["sops", "runbooks"]
+  },
+  {
+    "question": "Show the metric definition and policy for delivery success rate.",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": "delivery_success_rate",
+    "expected_region": null,
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["metric_definitions", "policies"]
+  },
+  {
+    "question": "Show the metric definition and policy for return rate.",
+    "role": "operations_analyst",
+    "expected_route": "hybrid",
+    "expected_metric": "return_rate",
+    "expected_region": null,
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["metric_definitions", "policies"]
+  },
+  {
+    "question": "Which region had a KPI drop?",
+    "role": "operations_analyst",
+    "expected_route": "structured_only",
+    "expected_metric": null,
+    "expected_region": null,
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 4,
+    "expected_freshness_status": "fresh",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": []
+  },
+  {
+    "question": "What does the policy say about escalation?",
+    "role": "regional_manager",
+    "expected_route": "documents_only",
+    "expected_metric": null,
+    "expected_region": null,
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 3,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["policies"]
+  },
+  {
+    "question": "What does the policy say about escalation?",
+    "role": "exec_viewer",
+    "expected_route": "documents_only",
+    "expected_metric": null,
+    "expected_region": null,
+    "expected_needs_citation": true,
+    "expected_min_trace_steps": 3,
+    "expected_freshness_status": "unknown",
+    "expected_min_blocked_sources": 0,
+    "gold_doc_groups": ["policies"]
   }
 ]

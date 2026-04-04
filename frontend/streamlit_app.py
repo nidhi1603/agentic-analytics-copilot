@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 import streamlit as st
 
+from app.core.auth import create_demo_token
 
 DEFAULT_BACKEND_URL = "http://127.0.0.1:8000"
 EXAMPLE_QUESTIONS = [
@@ -760,7 +761,7 @@ def render_empty_workspace() -> None:
 
 def perform_health_check(backend_url: str) -> dict[str, Any]:
     try:
-        response = httpx.get(f"{backend_url}/health", timeout=20.0)
+        response = httpx.get(f"{backend_url}/v1/health", timeout=20.0)
         response.raise_for_status()
         return {"ok": True, "payload": response.json()}
     except Exception as exc:
@@ -778,9 +779,11 @@ def run_investigation(
 
     with st.spinner("Investigating KPI movement and retrieving supporting evidence..."):
         try:
+            auth_token = create_demo_token(role=role)
             response = httpx.post(
-                f"{backend_url}/ask",
-                json={"question": question, "role": role},
+                f"{backend_url}/v1/ask",
+                json={"question": question},
+                headers={"Authorization": f"Bearer {auth_token}"},
                 timeout=60.0,
             )
             response.raise_for_status()
@@ -804,6 +807,7 @@ def render_summary(payload: dict[str, Any]) -> None:
     blocked_count = len(payload.get("blocked_sources", []))
     request_id = str(payload.get("request_id", "unknown"))
     latency_ms = int(payload.get("latency_ms", 0))
+    cache_status = str(payload.get("cache_status", "unknown")).title()
     role = str(payload.get("role", "unknown")).replace("_", " ").title()
     freshness = str(payload.get("freshness_status", "unknown")).title()
     completeness = str(payload.get("completeness_status", "unknown")).title()
@@ -858,6 +862,11 @@ def render_summary(payload: dict[str, Any]) -> None:
             <div class="stat-card">
                 <div class="stat-label">Blocked Sources</div>
                 <div class="stat-value">{blocked_count}</div>
+            </div>
+            <div style="height:0.8rem;"></div>
+            <div class="stat-card">
+                <div class="stat-label">Cache</div>
+                <div class="stat-value">{html.escape(cache_status)}</div>
             </div>
             """,
             unsafe_allow_html=True,
