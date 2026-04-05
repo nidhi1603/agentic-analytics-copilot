@@ -5,15 +5,12 @@ from typing import Any
 
 from app.core.config import get_settings
 
-try:
-    from sentence_transformers import CrossEncoder
-except Exception:  # pragma: no cover - optional runtime dependency during local install
-    CrossEncoder = None  # type: ignore[assignment]
-
 
 @lru_cache
 def get_reranker() -> Any | None:
-    if CrossEncoder is None:
+    try:
+        from sentence_transformers import CrossEncoder
+    except Exception:  # pragma: no cover - optional runtime dependency during local install
         return None
 
     settings = get_settings()
