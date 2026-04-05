@@ -4,18 +4,31 @@ import html
 import json
 import os
 import time
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 import httpx
 import streamlit as st
 
 from app.core.auth import create_demo_token
+from app.core.observability import (
+    get_investigation_history,
+    get_metrics_summary,
+    initialize_observability_store,
+)
+from app.db.bootstrap import initialize_database
+from app.retrieval.loader import load_document_chunks
+from app.retrieval.vector_store import get_collection, index_chunks
+from app.services.metrics_service import get_dashboard_for_role
+from app.services.workflow_service import run_question_workflow
 
 DEFAULT_BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 RENDER_COLD_START_MESSAGE = (
     "The backend likely timed out while waking up on Render. "
     "Wait 30-90 seconds and try again."
 )
+LOCAL_DEMO_FALLBACK_ENABLED = os.getenv("LOCAL_DEMO_FALLBACK", "true").lower() == "true"
 EXAMPLE_QUESTIONS = [
     "Why did delivery success rate drop in Region 3 on 2026-03-31?",
     "What does the escalation policy say about low-confidence cases?",
@@ -27,6 +40,9 @@ ROLES = [
     "regional_manager",
     "exec_viewer",
 ]
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DOCS_ROOT = PROJECT_ROOT / "data" / "docs"
 
 
 def main() -> None:
@@ -966,10 +982,16 @@ def perform_health_check(backend_url: str) -> dict[str, Any]:
             if attempt == 0:
                 time.sleep(2)
                 continue
+            if LOCAL_DEMO_FALLBACK_ENABLED:
+                return _local_health_payload()
             return {"ok": False, "error": RENDER_COLD_START_MESSAGE}
         except Exception as exc:
+            if LOCAL_DEMO_FALLBACK_ENABLED:
+                return _local_health_payload()
             return {"ok": False, "error": str(exc)}
 
+    if LOCAL_DEMO_FALLBACK_ENABLED:
+        return _local_health_payload()
     return {"ok": False, "error": RENDER_COLD_START_MESSAGE}
 
 
@@ -991,6 +1013,8 @@ def fetch_metrics(
         response.raise_for_status()
         return response.json()
     except Exception as exc:
+        if LOCAL_DEMO_FALLBACK_ENABLED:
+            return _local_metrics_payload(role)
         st.info(f"Ops metrics are not available yet: {exc}")
         return None
 
@@ -1008,6 +1032,8 @@ def fetch_dashboard_metrics(
         response.raise_for_status()
         return response.json()
     except Exception as exc:
+        if LOCAL_DEMO_FALLBACK_ENABLED:
+            return _local_dashboard_payload(role)
         st.info(f"Daily metrics dashboard is not available yet: {exc}")
         return None
 
@@ -1025,8 +1051,62 @@ def fetch_history(
         response.raise_for_status()
         return response.json()
     except Exception as exc:
+        if LOCAL_DEMO_FALLBACK_ENABLED:
+            return _local_history_payload(role)
         st.info(f"Investigation history is not available yet: {exc}")
         return None
+
+
+@lru_cache
+def _initialize_local_demo_runtime() -> bool:
+    initialize_database()
+    initialize_observability_store()
+
+    try:
+        collection = get_collection()
+        if collection.count() == 0 and os.getenv("OPENAI_API_KEY"):
+            chunks = load_document_chunks(DOCS_ROOT)
+            index_chunks(chunks)
+    except Exception:
+        # If local document indexing is unavailable, keep the fallback usable for
+        # structured questions and metrics instead of failing the whole demo.
+        return True
+
+    return True
+
+
+def _local_health_payload() -> dict[str, Any]:
+    _initialize_local_demo_runtime()
+    return {
+        "ok": True,
+        "payload": {
+            "status": "ok",
+            "app_name": "agentic-analytics-copilot",
+            "environment": "streamlit-local-fallback",
+            "database_path": "data/structured/operations.duckdb",
+        },
+    }
+
+
+def _local_metrics_payload(role: str) -> dict[str, Any]:
+    _initialize_local_demo_runtime()
+    return {
+        "role": role,
+        **get_metrics_summary(limit=20),
+    }
+
+
+def _local_dashboard_payload(role: str) -> dict[str, Any]:
+    _initialize_local_demo_runtime()
+    return get_dashboard_for_role(role)  # type: ignore[arg-type]
+
+
+def _local_history_payload(role: str) -> dict[str, Any]:
+    _initialize_local_demo_runtime()
+    return {
+        "role": role,
+        **get_investigation_history(limit=25),
+    }
 
 
 def run_investigation(
@@ -1084,8 +1164,21 @@ def run_investigation(
             st.error("Stream ended before the API returned a final payload.")
             return None
         except Exception as exc:
-            st.error(f"Investigation failed: {exc}")
-            return None
+            if not LOCAL_DEMO_FALLBACK_ENABLED:
+                st.error(f"Investigation failed: {exc}")
+                return None
+
+            try:
+                stream_placeholder.info(
+                    "Hosted API is unavailable. Switching to local demo mode for this investigation..."
+                )
+                _initialize_local_demo_runtime()
+                response = run_question_workflow(question, role)
+                stream_placeholder.empty()
+                return response.model_dump()
+            except Exception as local_exc:
+                st.error(f"Investigation failed: {local_exc}")
+                return None
 
 
 def render_summary(payload: dict[str, Any]) -> None:

@@ -27,12 +27,16 @@ services:
     name: agentic-analytics-streamlit
     runtime: python
     plan: free
-    buildCommand: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+    buildCommand: python -m pip install --upgrade pip && python -m pip install -e ".[dev]" && python scripts/init_duckdb.py
     startCommand: streamlit run frontend/streamlit_app.py --server.port $PORT --server.address 0.0.0.0
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: ENABLE_RERANKER
+        value: "false"
       - key: BACKEND_URL
+        sync: false
+      - key: OPENAI_API_KEY
         sync: false
       - key: JWT_SECRET
         sync: false
