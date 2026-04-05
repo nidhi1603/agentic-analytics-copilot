@@ -19,6 +19,12 @@ The system accepts a business investigation question through a versioned FastAPI
 
 ## Demo Preview
 
+### Live deployment
+
+- Streamlit app: [https://agentic-analytics-streamlit.onrender.com](https://agentic-analytics-streamlit.onrender.com)
+- FastAPI API: [https://agentic-analytics-api.onrender.com](https://agentic-analytics-api.onrender.com)
+- API docs: [https://agentic-analytics-api.onrender.com/docs](https://agentic-analytics-api.onrender.com/docs)
+
 ### Streamlit overview
 
 ![Streamlit overview](./assets/demo-overview.png)
@@ -358,6 +364,13 @@ And for Streamlit:
 http://localhost:8501
 ```
 
+Hosted deployment:
+
+```text
+https://agentic-analytics-api.onrender.com/docs
+https://agentic-analytics-streamlit.onrender.com
+```
+
 ### 8. Run tests and evals
 
 ```bash
@@ -453,3 +466,9 @@ To deploy on Render:
 4. Deploy both services from the generated blueprint.
 
 This environment does not have access to your Render or Railway account, so the live URL still needs to be created from your side after the config is pushed.
+
+Current live URLs:
+
+- Streamlit app: [https://agentic-analytics-streamlit.onrender.com](https://agentic-analytics-streamlit.onrender.com)
+- FastAPI API: [https://agentic-analytics-api.onrender.com](https://agentic-analytics-api.onrender.com)
+- API docs: [https://agentic-analytics-api.onrender.com/docs](https://agentic-analytics-api.onrender.com/docs)
