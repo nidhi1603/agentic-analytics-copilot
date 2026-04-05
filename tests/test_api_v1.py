@@ -159,6 +159,40 @@ def test_metrics_dashboard_endpoint_returns_role_scoped_payload(monkeypatch) -> 
     assert body["alerts"][0]["level"] == "red"
 
 
+def test_history_endpoint_returns_recent_investigations(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.v1.routes.history.get_investigation_history",
+        lambda limit=25: {
+            "count": 1,
+            "items": [
+                {
+                    "request_id": "req_hist_1",
+                    "created_at": "2026-04-05T00:00:00+00:00",
+                    "role": "operations_analyst",
+                    "question": "Why did Region 3 drop?",
+                    "answer": "Carrier capacity shortage caused the drop.",
+                    "confidence": "high",
+                    "needs_analyst_review": False,
+                    "analyst_review_reason": None,
+                    "cache_status": "miss",
+                    "freshness_status": "fresh",
+                    "completeness_status": "complete",
+                    "blocked_sources_count": 0,
+                    "citations_count": 2,
+                }
+            ],
+        },
+    )
+
+    response = client.get("/v1/history", headers=_auth_headers("operations_analyst"))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["role"] == "operations_analyst"
+    assert body["count"] == 1
+    assert body["items"][0]["request_id"] == "req_hist_1"
+
+
 def test_stream_endpoint_returns_sse(monkeypatch) -> None:
     monkeypatch.setitem(app.state.__dict__, "_rate_buckets", {})
 

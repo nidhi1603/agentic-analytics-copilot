@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from app.core.cache import load_cached_response, save_cached_response
 from app.core.logging import get_logger
-from app.core.observability import record_request_metric
+from app.core.observability import record_investigation_history, record_request_metric
 from app.orchestration.graph import run_investigation_workflow
 from app.schemas.ask import AskResponse
 
@@ -61,6 +61,20 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
                 "llm_latency_ms": 0,
             },
         )
+        record_investigation_history(
+            request_id=request_id,
+            role=role,
+            question=question,
+            answer=response.answer,
+            confidence=response.confidence,
+            needs_analyst_review=response.needs_analyst_review,
+            analyst_review_reason=response.analyst_review_reason,
+            cache_status=response.cache_status,
+            freshness_status=response.freshness_status,
+            completeness_status=response.completeness_status,
+            blocked_sources_count=len(response.blocked_sources),
+            citations_count=len(response.citations),
+        )
         return response
     try:
         state = _invoke_workflow(question, role, request_id)
@@ -100,6 +114,20 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
             trace_steps=len(response.trace),
             citations_count=len(response.citations),
             llm_observability=state.get("llm_observability"),
+        )
+        record_investigation_history(
+            request_id=request_id,
+            role=role,
+            question=question,
+            answer=response.answer,
+            confidence=response.confidence,
+            needs_analyst_review=response.needs_analyst_review,
+            analyst_review_reason=response.analyst_review_reason,
+            cache_status=response.cache_status,
+            freshness_status=response.freshness_status,
+            completeness_status=response.completeness_status,
+            blocked_sources_count=len(response.blocked_sources),
+            citations_count=len(response.citations),
         )
         logger.info(
             "workflow_completed request_id=%s role=%s confidence=%s needs_review=%s trace_steps=%s blocked_sources=%s latency_ms=%s cache_status=%s",
@@ -164,6 +192,20 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
                 "llm_latency_ms": 0,
                 "error": str(exc),
             },
+        )
+        record_investigation_history(
+            request_id=request_id,
+            role=role,
+            question=question,
+            answer=response.answer,
+            confidence=response.confidence,
+            needs_analyst_review=response.needs_analyst_review,
+            analyst_review_reason=response.analyst_review_reason,
+            cache_status=response.cache_status,
+            freshness_status=response.freshness_status,
+            completeness_status=response.completeness_status,
+            blocked_sources_count=0,
+            citations_count=0,
         )
         return response
 

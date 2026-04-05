@@ -52,6 +52,7 @@ def initialize_session_state() -> None:
     st.session_state.setdefault("last_payload", None)
     st.session_state.setdefault("metrics_payload", None)
     st.session_state.setdefault("dashboard_payload", None)
+    st.session_state.setdefault("history_payload", None)
     st.session_state.setdefault("health_payload", None)
     st.session_state.setdefault("backend_status", "Unknown")
     st.session_state.setdefault("role", "operations_analyst")
@@ -747,6 +748,10 @@ def render_sidebar() -> None:
             backend_url=backend_url,
             role=st.session_state.get("role", "operations_analyst"),
         )
+        st.session_state["history_payload"] = fetch_history(
+            backend_url=backend_url,
+            role=st.session_state.get("role", "operations_analyst"),
+        )
 
     health_payload = st.session_state.get("health_payload")
     if health_payload:
@@ -860,6 +865,10 @@ def render_control_panel() -> None:
                     backend_url=st.session_state.get("backend_url", DEFAULT_BACKEND_URL),
                     role=st.session_state.get("role", "operations_analyst"),
                 )
+                st.session_state["history_payload"] = fetch_history(
+                    backend_url=st.session_state.get("backend_url", DEFAULT_BACKEND_URL),
+                    role=st.session_state.get("role", "operations_analyst"),
+                )
     with reset_col:
         if st.button("Reset", use_container_width=True):
             st.session_state["last_payload"] = None
@@ -870,8 +879,8 @@ def render_workspace() -> None:
     if payload:
         render_summary(payload)
 
-    summary_tab, evidence_tab, trace_tab, daily_metrics_tab, metrics_tab, raw_tab = st.tabs(
-        ["Summary", "Evidence", "Workflow Trace", "Daily Metrics", "Ops Metrics", "Raw Response"]
+    summary_tab, evidence_tab, trace_tab, daily_metrics_tab, history_tab, metrics_tab, raw_tab = st.tabs(
+        ["Summary", "Evidence", "Workflow Trace", "Daily Metrics", "Recent Investigations", "Ops Metrics", "Raw Response"]
     )
 
     with summary_tab:
@@ -895,6 +904,9 @@ def render_workspace() -> None:
 
     with daily_metrics_tab:
         render_daily_metrics_dashboard()
+
+    with history_tab:
+        render_investigation_history()
 
     with metrics_tab:
         render_metrics_dashboard()
@@ -997,6 +1009,23 @@ def fetch_dashboard_metrics(
         return response.json()
     except Exception as exc:
         st.info(f"Daily metrics dashboard is not available yet: {exc}")
+        return None
+
+
+def fetch_history(
+    backend_url: str,
+    role: str,
+) -> dict[str, Any] | None:
+    try:
+        response = httpx.get(
+            f"{backend_url}/v1/history",
+            headers=build_auth_headers(role),
+            timeout=20.0,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as exc:
+        st.info(f"Investigation history is not available yet: {exc}")
         return None
 
 
@@ -1322,6 +1351,47 @@ def render_daily_metrics_dashboard() -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
     render_dashboard_fragment()
+
+
+def render_investigation_history() -> None:
+    backend_url = st.session_state.get("backend_url", DEFAULT_BACKEND_URL)
+    role = st.session_state.get("role", "operations_analyst")
+
+    history_payload = fetch_history(backend_url=backend_url, role=role)
+    if history_payload:
+        st.session_state["history_payload"] = history_payload
+
+    current_payload = st.session_state.get("history_payload")
+    if not current_payload or not current_payload.get("items"):
+        st.caption("Recent investigations will appear here after you run a few questions.")
+        return
+
+    st.markdown("<div class='section-title'>Recent Investigations</div>", unsafe_allow_html=True)
+    st.caption("Each record captures who asked, what the system answered, and the confidence assigned.")
+
+    for item in current_payload.get("items", []):
+        review_label = "Analyst review required" if item.get("needs_analyst_review") else "Ready to share"
+        st.markdown(
+            f"""
+            <div class="dashboard-card" style="margin-bottom:0.9rem;">
+                <div class="dashboard-card-label">{html.escape(str(item.get('created_at', '')))}</div>
+                <div class="dashboard-card-value" style="font-size:1.15rem;">{html.escape(str(item.get('question', '')))}</div>
+                <div class="dashboard-status">
+                    <span class="status-dot {'red' if item.get('needs_analyst_review') else 'green'}"></span>
+                    <span>{html.escape(str(item.get('confidence', 'unknown')).title())} confidence</span>
+                    <span style="margin-left:0.8rem;">{html.escape(review_label)}</span>
+                </div>
+                <div class="dashboard-card-detail"><strong>Answer:</strong> {html.escape(str(item.get('answer', '')))}</div>
+                <div class="dashboard-card-detail" style="margin-top:0.5rem;">
+                    Role: {html.escape(str(item.get('role', 'unknown')).replace('_', ' ').title())} |
+                    Cache: {html.escape(str(item.get('cache_status', 'unknown')).title())} |
+                    Freshness: {html.escape(str(item.get('freshness_status', 'unknown')).title())} |
+                    Blocked sources: {int(item.get('blocked_sources_count', 0))}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def render_metrics_dashboard() -> None:

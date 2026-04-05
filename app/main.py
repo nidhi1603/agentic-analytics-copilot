@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from app.api.v1.routes.ask import router as ask_router
 from app.api.v1.routes.debug import router as debug_router
 from app.api.v1.routes.health import router as health_router
+from app.api.v1.routes.history import router as history_router
 from app.api.v1.routes.metrics import router as metrics_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -63,4 +64,5 @@ async def apply_rate_limit(request, call_next):
 app.include_router(ask_router, prefix="/v1")
 app.include_router(debug_router, prefix="/v1")
 app.include_router(health_router, prefix="/v1")
+app.include_router(history_router, prefix="/v1")
 app.include_router(metrics_router, prefix="/v1")

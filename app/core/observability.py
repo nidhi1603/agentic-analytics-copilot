@@ -55,6 +55,25 @@ def initialize_observability_store() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS investigation_history (
+                request_id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL,
+                role TEXT NOT NULL,
+                question TEXT NOT NULL,
+                answer TEXT NOT NULL,
+                confidence TEXT NOT NULL,
+                needs_analyst_review INTEGER NOT NULL,
+                analyst_review_reason TEXT,
+                cache_status TEXT NOT NULL,
+                freshness_status TEXT NOT NULL,
+                completeness_status TEXT NOT NULL,
+                blocked_sources_count INTEGER NOT NULL,
+                citations_count INTEGER NOT NULL
+            )
+            """
+        )
 
 
 def estimate_openai_cost(
@@ -166,6 +185,74 @@ def record_request_metric(
         )
 
 
+def record_investigation_history(
+    *,
+    request_id: str,
+    role: str,
+    question: str,
+    answer: str,
+    confidence: str,
+    needs_analyst_review: bool,
+    analyst_review_reason: str | None,
+    cache_status: str,
+    freshness_status: str,
+    completeness_status: str,
+    blocked_sources_count: int,
+    citations_count: int,
+) -> None:
+    initialize_observability_store()
+    payload = {
+        "request_id": request_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "role": role,
+        "question": question,
+        "answer": answer,
+        "confidence": confidence,
+        "needs_analyst_review": 1 if needs_analyst_review else 0,
+        "analyst_review_reason": analyst_review_reason,
+        "cache_status": cache_status,
+        "freshness_status": freshness_status,
+        "completeness_status": completeness_status,
+        "blocked_sources_count": blocked_sources_count,
+        "citations_count": citations_count,
+    }
+    with get_observability_connection() as connection:
+        connection.execute(
+            """
+            INSERT OR REPLACE INTO investigation_history (
+                request_id,
+                created_at,
+                role,
+                question,
+                answer,
+                confidence,
+                needs_analyst_review,
+                analyst_review_reason,
+                cache_status,
+                freshness_status,
+                completeness_status,
+                blocked_sources_count,
+                citations_count
+            ) VALUES (
+                :request_id,
+                :created_at,
+                :role,
+                :question,
+                :answer,
+                :confidence,
+                :needs_analyst_review,
+                :analyst_review_reason,
+                :cache_status,
+                :freshness_status,
+                :completeness_status,
+                :blocked_sources_count,
+                :citations_count
+            )
+            """,
+            payload,
+        )
+
+
 def _percentile(values: list[int], percentile: float) -> int:
     if not values:
         return 0
@@ -249,6 +336,41 @@ def get_metrics_summary(limit: int = 20) -> dict[str, Any]:
             "avg_cost_usd": round(total_cost / len(all_rows), 6),
         },
         "recent_requests": recent_requests,
+    }
+
+
+def get_investigation_history(limit: int = 25) -> dict[str, Any]:
+    with get_observability_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM investigation_history
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    return {
+        "count": len(rows),
+        "items": [
+            {
+                "request_id": row["request_id"],
+                "created_at": row["created_at"],
+                "role": row["role"],
+                "question": row["question"],
+                "answer": row["answer"],
+                "confidence": row["confidence"],
+                "needs_analyst_review": bool(row["needs_analyst_review"]),
+                "analyst_review_reason": row["analyst_review_reason"],
+                "cache_status": row["cache_status"],
+                "freshness_status": row["freshness_status"],
+                "completeness_status": row["completeness_status"],
+                "blocked_sources_count": int(row["blocked_sources_count"]),
+                "citations_count": int(row["citations_count"]),
+            }
+            for row in rows
+        ],
     }
 
 
