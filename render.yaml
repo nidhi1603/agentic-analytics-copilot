@@ -3,8 +3,8 @@ services:
     name: agentic-analytics-api
     runtime: python
     plan: free
-    buildCommand: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
-    startCommand: python scripts/init_duckdb.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: python -m pip install --upgrade pip && python -m pip install -e ".[dev]" && python scripts/init_duckdb.py
+    startCommand: exec uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
