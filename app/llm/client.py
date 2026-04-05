@@ -28,46 +28,48 @@ def synthesize_answer_with_metadata(
     client = OpenAI(api_key=settings.openai_api_key)
     prompt = build_investigation_prompt(state)
     started_at = perf_counter()
+    try:
+        response = client.chat.completions.create(
+            model=settings.openai_chat_model,
+            response_format={"type": "json_object"},
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a grounded enterprise analytics assistant.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+        )
+        llm_latency_ms = int((perf_counter() - started_at) * 1000)
 
-    response = client.chat.completions.create(
-        model=settings.openai_chat_model,
-        response_format={"type": "json_object"},
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a grounded enterprise analytics assistant.",
-            },
-            {"role": "user", "content": prompt},
-        ],
-    )
-    llm_latency_ms = int((perf_counter() - started_at) * 1000)
-
-    content = response.choices[0].message.content or "{}"
-    parsed = json.loads(content)
-    synthesized = SynthesizedAnswer.model_validate(parsed)
-    usage = {
-        "provider": "openai",
-        "model": settings.openai_chat_model,
-        "prompt_tokens": int(getattr(response.usage, "prompt_tokens", 0) or 0),
-        "completion_tokens": int(getattr(response.usage, "completion_tokens", 0) or 0),
-        "total_tokens": int(getattr(response.usage, "total_tokens", 0) or 0),
-        "llm_latency_ms": llm_latency_ms,
-    }
-    usage["estimated_cost_usd"] = estimate_openai_cost(
-        settings.openai_chat_model,
-        usage["prompt_tokens"],
-        usage["completion_tokens"],
-    )
-    log_langfuse_generation(
-        request_id=state.get("request_id"),
-        role=state.get("role"),
-        question=state.get("question"),
-        prompt=prompt,
-        model=settings.openai_chat_model,
-        usage=usage,
-        output=synthesized.answer,
-    )
-    return synthesized, usage
+        content = response.choices[0].message.content or "{}"
+        parsed = json.loads(content)
+        synthesized = SynthesizedAnswer.model_validate(parsed)
+        usage = {
+            "provider": "openai",
+            "model": settings.openai_chat_model,
+            "prompt_tokens": int(getattr(response.usage, "prompt_tokens", 0) or 0),
+            "completion_tokens": int(getattr(response.usage, "completion_tokens", 0) or 0),
+            "total_tokens": int(getattr(response.usage, "total_tokens", 0) or 0),
+            "llm_latency_ms": llm_latency_ms,
+        }
+        usage["estimated_cost_usd"] = estimate_openai_cost(
+            settings.openai_chat_model,
+            usage["prompt_tokens"],
+            usage["completion_tokens"],
+        )
+        log_langfuse_generation(
+            request_id=state.get("request_id"),
+            role=state.get("role"),
+            question=state.get("question"),
+            prompt=prompt,
+            model=settings.openai_chat_model,
+            usage=usage,
+            output=synthesized.answer,
+        )
+        return synthesized, usage
+    except Exception as exc:
+        return fallback_synthesized_answer(state), build_fallback_observability(f"llm_error:{type(exc).__name__}")
 
 
 def fallback_synthesized_answer(state: WorkflowState) -> SynthesizedAnswer:
@@ -102,7 +104,7 @@ def fallback_synthesized_answer(state: WorkflowState) -> SynthesizedAnswer:
 
     return SynthesizedAnswer(
         answer=(
-            "Based on the retrieved KPI, incident, and document evidence, the issue appears linked "
+            "Based on the retrieved evidence, the issue appears linked "
             "to the dominant operational patterns surfaced in the investigation context."
         ),
         likely_causes=likely_causes,

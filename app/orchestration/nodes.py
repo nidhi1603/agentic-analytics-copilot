@@ -136,22 +136,32 @@ def gather_document_evidence_node(state: WorkflowState) -> WorkflowState:
     if metric_name:
         query_text = f"{question}\nRelated metric: {metric_name}"
 
-    documents, blocked_documents, allowed_documents = tool_retrieve_documents(
-        query_text=query_text,
-        role=role,
-        limit=4,
-    )
-    blocked_sources.extend(blocked_documents)
-    allowed_sources.extend(allowed_documents)
-    trace.append(
-        f"gather_document_evidence: documents={len(documents)}, blocked={len(blocked_documents)}"
-    )
+    documents = []
+    blocked_documents: list[str] = []
+    allowed_documents: list[str] = []
+    retrieval_warning = None
+    try:
+        documents, blocked_documents, allowed_documents = tool_retrieve_documents(
+            query_text=query_text,
+            role=role,
+            limit=4,
+        )
+    except Exception as exc:
+        retrieval_warning = str(exc)
+        trace.append("gather_document_evidence: documents=0, blocked=0, retrieval_status=unavailable")
+    else:
+        blocked_sources.extend(blocked_documents)
+        allowed_sources.extend(allowed_documents)
+        trace.append(
+            f"gather_document_evidence: documents={len(documents)}, blocked={len(blocked_documents)}"
+        )
 
     return {
         "documents": documents,
         "trace": trace,
         "blocked_sources": blocked_sources,
         "allowed_sources": allowed_sources,
+        "document_retrieval_warning": retrieval_warning,
     }
 
 
@@ -175,6 +185,9 @@ def prepare_investigation_context_node(state: WorkflowState) -> WorkflowState:
         f"Freshness status: {state.get('freshness_status', 'unknown')}",
         f"Completeness status: {state.get('completeness_status', 'unknown')}",
     ]
+
+    if state.get("document_retrieval_warning"):
+        summary_lines.append("Document retrieval available: no (temporary retrieval issue)")
 
     if state.get("metric_definition") is not None:
         summary_lines.append("Metric definition available: yes")

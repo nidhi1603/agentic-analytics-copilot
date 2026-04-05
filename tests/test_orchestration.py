@@ -1,4 +1,4 @@
-from app.orchestration.nodes import prepare_investigation_context_node
+from app.orchestration.nodes import gather_document_evidence_node, prepare_investigation_context_node
 
 
 def test_prepare_investigation_context_summarizes_state() -> None:
@@ -44,3 +44,27 @@ def test_synthesize_answer_node_can_be_added_later_without_state_loss() -> None:
 
     assert "Documents retrieved: 0" in result["evidence_summary"]
     assert "Role: operations_analyst" in result["evidence_summary"]
+
+
+def test_gather_document_evidence_degrades_gracefully_when_retrieval_fails(monkeypatch) -> None:
+    def fail_retrieval(**_kwargs):
+        raise RuntimeError("embedding service unavailable")
+
+    monkeypatch.setattr("app.orchestration.nodes.tool_retrieve_documents", fail_retrieval)
+
+    result = gather_document_evidence_node(
+        {
+            "question": "What does the SOP say for Region 3?",
+            "role": "operations_analyst",
+            "metric_name": "delivery_success_rate",
+            "trace": ["classify_request"],
+            "blocked_sources": [],
+            "allowed_sources": [],
+        }
+    )
+
+    assert result["documents"] == []
+    assert result["blocked_sources"] == []
+    assert result["allowed_sources"] == []
+    assert "retrieval_status=unavailable" in result["trace"][-1]
+    assert result["document_retrieval_warning"] == "embedding service unavailable"

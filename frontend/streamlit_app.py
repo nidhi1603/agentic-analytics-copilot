@@ -53,6 +53,7 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
     initialize_session_state()
+    apply_pending_question()
     inject_styles()
 
     with st.sidebar:
@@ -65,6 +66,7 @@ def main() -> None:
 
 def initialize_session_state() -> None:
     st.session_state.setdefault("question", EXAMPLE_QUESTIONS[0])
+    st.session_state.setdefault("pending_question", None)
     st.session_state.setdefault("last_payload", None)
     st.session_state.setdefault("metrics_payload", None)
     st.session_state.setdefault("dashboard_payload", None)
@@ -73,6 +75,13 @@ def initialize_session_state() -> None:
     st.session_state.setdefault("backend_status", "Unknown")
     st.session_state.setdefault("role", "operations_analyst")
     st.session_state.setdefault("backend_url", DEFAULT_BACKEND_URL)
+
+
+def apply_pending_question() -> None:
+    pending_question = st.session_state.get("pending_question")
+    if pending_question:
+        st.session_state["question"] = pending_question
+        st.session_state["pending_question"] = None
 
 
 def inject_styles() -> None:
@@ -784,7 +793,8 @@ def render_sidebar() -> None:
     st.markdown("### Starter Prompts")
     for index, example in enumerate(EXAMPLE_QUESTIONS):
         if st.button(example, key=f"example_{index}", use_container_width=True):
-            st.session_state["question"] = example
+            st.session_state["pending_question"] = example
+            st.rerun()
 
     st.divider()
     st.markdown("### Demo Highlights")
@@ -1303,7 +1313,8 @@ def render_outcome_lists(payload: dict[str, Any]) -> None:
                     key=f"follow_up_{payload.get('request_id', 'latest')}_{index}",
                     use_container_width=True,
                 ):
-                    st.session_state["question"] = follow_up
+                    st.session_state["pending_question"] = follow_up
+                    st.rerun()
 
 
 def render_list_card(title: str, items: list[str], empty_message: str) -> None:
