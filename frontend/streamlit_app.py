@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import os
+import time
 from typing import Any
 
 import httpx
@@ -11,6 +12,10 @@ import streamlit as st
 from app.core.auth import create_demo_token
 
 DEFAULT_BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+RENDER_COLD_START_MESSAGE = (
+    "The backend likely timed out while waking up on Render. "
+    "Wait 30-90 seconds and try again."
+)
 EXAMPLE_QUESTIONS = [
     "Why did delivery success rate drop in Region 3 on 2026-03-31?",
     "What does the escalation policy say about low-confidence cases?",
@@ -778,12 +783,22 @@ def render_empty_workspace() -> None:
 
 
 def perform_health_check(backend_url: str) -> dict[str, Any]:
-    try:
-        response = httpx.get(f"{backend_url}/v1/health", timeout=20.0)
-        response.raise_for_status()
-        return {"ok": True, "payload": response.json()}
-    except Exception as exc:
-        return {"ok": False, "error": str(exc)}
+    timeout = httpx.Timeout(connect=10.0, read=75.0, write=20.0, pool=20.0)
+
+    for attempt in range(2):
+        try:
+            response = httpx.get(f"{backend_url}/v1/health", timeout=timeout)
+            response.raise_for_status()
+            return {"ok": True, "payload": response.json()}
+        except httpx.ReadTimeout:
+            if attempt == 0:
+                time.sleep(2)
+                continue
+            return {"ok": False, "error": RENDER_COLD_START_MESSAGE}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    return {"ok": False, "error": RENDER_COLD_START_MESSAGE}
 
 
 def build_auth_headers(role: str) -> dict[str, str]:
