@@ -1,77 +1,95 @@
 # Agentic Analytics Copilot for Enterprise Operations
 
-Production-style internal AI system for KPI anomaly investigation across structured operational data and unstructured business knowledge.
+[![Live Demo](https://img.shields.io/badge/live%20demo-Streamlit-e67e22?style=for-the-badge)](https://agentic-analytics-streamlit.onrender.com)
+[![API](https://img.shields.io/badge/API-FastAPI-0f766e?style=for-the-badge)](https://agentic-analytics-api.onrender.com/docs)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-Orchestrated-1f2937?style=for-the-badge)
+![DuckDB](https://img.shields.io/badge/DuckDB-Analytics-f59e0b?style=for-the-badge)
+![CI](https://github.com/nidhi1603/agentic-analytics-copilot/actions/workflows/ci.yml/badge.svg)
 
-## Problem Statement
+> Live demo: [agentic-analytics-streamlit.onrender.com](https://agentic-analytics-streamlit.onrender.com)  
+> API docs: [agentic-analytics-api.onrender.com/docs](https://agentic-analytics-api.onrender.com/docs)
 
-Operations and analytics teams lose time investigating KPI drops across dashboards, raw events, incident logs, SOPs, and escalation policies. This project simulates an internal AI copilot that helps answer investigation questions such as:
+## Overview
 
-- Why did delivery success rate drop in Region 3 yesterday?
-- Which KPI moved abnormally this week?
-- What does the runbook suggest we do next?
-- When should this case be escalated to an analyst?
+This project simulates a production-style internal AI system for operations teams investigating KPI anomalies across both structured data and unstructured business knowledge.
 
-The goal is not to build a generic chatbot. The goal is to build a grounded, traceable, evaluation-aware workflow that looks closer to what enterprise AI teams are actually shipping.
+Instead of acting like a generic chatbot, it routes questions through a LangGraph workflow, retrieves grounded evidence from DuckDB and ChromaDB, enforces role-based access, and returns answers with citations, confidence, workflow trace, and analyst-review fallback.
 
-## What The System Does
+What makes it different from a typical student AI repo:
 
-The system accepts a business investigation question through a versioned FastAPI API, authenticates the caller with a bearer token, routes the request through a LangGraph workflow, gathers evidence from both DuckDB tables and hybrid-retrieved ChromaDB documents, and produces a grounded answer with citations, confidence, trace steps, cache metadata, and analyst-review fallback.
+- hybrid investigation across KPIs, incidents, runbooks, SOPs, and policies
+- role-aware access control and blocked-source handling
+- confidence breakdown, freshness, completeness, and analyst-review safeguards
+- daily metrics dashboard with alerts
+- investigation history / audit trail
+- suggested follow-up questions
+- live hosted demo with reliability fallbacks for free-tier deployment
 
-## Demo Preview
+---
 
-### Live deployment
+## Demo
 
-- Streamlit app: [https://agentic-analytics-streamlit.onrender.com](https://agentic-analytics-streamlit.onrender.com)
-- FastAPI API: [https://agentic-analytics-api.onrender.com](https://agentic-analytics-api.onrender.com)
-- API docs: [https://agentic-analytics-api.onrender.com/docs](https://agentic-analytics-api.onrender.com/docs)
-
-### Streamlit overview
+### Full app overview
 
 ![Streamlit overview](./assets/demo-overview-v2.png)
-
-The current demo flow highlights:
-
-- role-aware investigation from the sidebar
-- grounded answer output with confidence and analyst-review status
-- freshness and completeness signals for partial or lagging data
-- blocked-source handling for restricted roles
-- follow-up suggestions that let the analyst continue the investigation in one click
 
 ### Daily metrics dashboard
 
 ![Daily metrics dashboard](./assets/daily-metrics.png)
 
-The live demo now includes a role-based daily dashboard that shows only the metrics each role is allowed to see, applies red/amber/green threshold logic, surfaces operational alerts, and renders restricted placeholders where policy blocks deeper visibility.
-
 ### Recent investigations
 
 ![Recent investigations](./assets/recent-investigations.png)
 
-The audit trail tab captures recent investigations with role, timestamp, confidence, review requirement, and answer summary so the system feels closer to an internal enterprise tool than a one-off chatbot.
-
-### Suggested follow-ups
+### Suggested follow-up flow
 
 ![Suggested follow-ups](./assets/suggested-followups.png)
-
-Suggested follow-up questions make the app behave more like a copilot than a search box by guiding the user toward the next best investigation step.
 
 ### Confidence breakdown
 
 ![Confidence breakdown](./assets/confidence-breakdown.png)
 
-The breakdown panel explains why a case is high, medium, or low confidence using evidence availability, blocked sources, freshness, completeness, and analyst-review triggers.
-
 ### Workflow trace
 
 ![Workflow trace](./assets/workflow-trace.png)
 
-The workflow trace makes the orchestration path visible step by step, which is especially useful for debugging and for explaining the system clearly in interviews.
+---
+
+## What It Does
+
+The system supports three investigation modes:
+
+- `structured_only`: KPI and incident analysis from DuckDB
+- `documents_only`: SOP, runbook, and policy retrieval from ChromaDB
+- `hybrid`: combined metric evidence plus document guidance
+
+It returns:
+
+- grounded answer
+- citations
+- confidence label
+- confidence breakdown
+- freshness and completeness signals
+- blocked sources
+- workflow trace
+- analyst-review reason
+- request ID, latency, and cache status
+
+The Streamlit app also includes:
+
+- `Daily Metrics` tab with role-based operational dashboards and alert banners
+- `Recent Investigations` tab with audit history
+- `Ops Metrics` tab with request metrics, latency, token totals, and estimated cost
+- suggested follow-up questions that continue the investigation in one click
+
+---
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    U["User / Recruiter Demo"] --> S["Streamlit UI"]
+    U["User"] --> S["Streamlit UI"]
     U --> A["FastAPI API (/v1)"]
     S --> A
     A --> AU["Bearer Auth + Rate Limit"]
@@ -81,436 +99,252 @@ flowchart LR
     T --> D["DuckDB<br/>daily_kpis / shipment_events / incident_log / metric_definitions"]
     R --> C["ChromaDB<br/>SOPs / runbooks / policies / incident notes"]
     G --> K["Semantic Cache"]
-    G --> L["LLM Answer Synthesis"]
-    L --> O["Grounded Response<br/>answer + citations + confidence + trace + analyst review + cache status"]
+    G --> L["LLM Synthesis + Guardrails"]
+    L --> O["Answer + Citations + Confidence + Trace + Review Flag"]
 ```
 
-## Core Features
+---
+
+## Key Features
 
 - Natural-language KPI investigation over structured operational data
-- Raw-to-curated data pipeline that turns messy operational feeds into agent-ready serving tables
-- Data quality checks for duplicates, normalization, metric coverage, freshness values, completeness bounds, and policy uniqueness
-- Retrieval over metric definitions, SOPs, runbooks, policies, and incident notes
-- Hybrid document retrieval using vector search, BM25 keyword scoring, reciprocal rank fusion, and reranking
-- LangGraph-based routing for structured-only, document-only, and hybrid questions
-- Role-aware access control across structured and unstructured sources
-- Versioned `/v1` API routes with bearer-token auth and request rate limiting
-- Grounded answer generation with citations
-- Confidence labels, confidence breakdown, analyst-review reasons, and `needs_analyst_review` fallback
-- Freshness and completeness-aware investigation outputs
-- Semantic cache with cache hit/miss metadata for repeated questions
-- Request observability persisted to a local metrics store, with optional Langfuse tracing hooks
-- Streaming investigation endpoint for progressive answer delivery
-- Workflow trace endpoint for debugging orchestration decisions
-- Role-based daily metrics dashboard with threshold alerts and restricted placeholders
-- Investigation history / audit trail for recent questions and system outputs
-- Suggested follow-up questions that extend the investigation path from the current answer
-- Hosted-demo local fallback path so the Streamlit app still works when the free-tier API cold-starts or becomes temporarily unavailable
-- Streamlit demo UI for recruiter-friendly exploration
-- Local evaluation harness for route correctness, citations, trace depth, freshness, blocked-source expectations, and retrieval quality
-- Dockerized local startup path
+- Raw-to-curated pipeline over messy bronze-style feeds
+- Data quality checks for duplicates, normalization, coverage, freshness, and completeness
+- Hybrid retrieval with vector search, BM25 keyword scoring, reciprocal rank fusion, and reranking
+- LangGraph orchestration for structured, document, and hybrid routes
+- Role-aware access control across tables and doc groups
+- Versioned `/v1` API with bearer auth and request rate limiting
+- Semantic cache for repeated questions
+- Streaming investigation endpoint
+- Confidence guardrails with analyst-review fallback
+- Freshness and completeness-aware outputs
+- Daily metrics dashboard with threshold-based alerts
+- Investigation history / audit trail
+- Suggested follow-up questions
+- Local fallback mode so the hosted Streamlit demo still works during API cold starts or transient failures
+- Optional Langfuse hooks for observability
+- GitHub Actions CI and eval gate support
+
+---
 
 ## Tech Stack
 
-### Backend and API
+**Backend**
 
-- `Python`
-- `FastAPI`
-- `Pydantic`
+- Python
+- FastAPI
+- Pydantic
 
-### Demo UI
+**Orchestration and LLM**
 
-- `Streamlit`
-- `httpx`
-
-### Structured Data
-
-- `DuckDB`
-- CSV seed datasets for KPI, shipment, incident, metric-definition, and access-policy tables
-
-### Unstructured Retrieval
-
-- `ChromaDB`
-- OpenAI embeddings via `text-embedding-3-small`
-- `rank-bm25`
-- sentence-transformers cross-encoder reranker
-
-### Orchestration and LLM
-
-- `LangGraph`
+- LangGraph
 - OpenAI chat completions via `gpt-4.1-mini`
 
-### Reliability and Evaluation
+**Structured data**
 
-- structured logging
+- DuckDB
+- curated CSV serving tables
+
+**Retrieval**
+
+- ChromaDB
+- OpenAI embeddings via `text-embedding-3-small`
+- `rank-bm25`
+- sentence-transformers reranker
+
+**Frontend**
+
+- Streamlit
+- httpx
+
+**Reliability**
+
 - semantic cache
-- request metrics store backed by SQLite
-- `pytest`
-- custom eval harness in `evals/run_eval.py`
-- optional LLM-as-judge scoring in `evals/llm_judge.py`
-- GitHub Actions CI with an eval gate
+- SQLite-backed observability
+- pytest
+- custom eval harness
+- GitHub Actions
 
-### Packaging
+**Deployment**
 
-- `Docker`
-- `docker-compose`
+- Render
+- Docker / docker-compose
 
-## Data Sources
+---
 
-This MVP uses synthetic but realistic internal operations data.
+## API Surface
 
-The agent-facing serving tables are rebuilt from a simulated raw bronze layer:
+- `GET /v1/health`
+- `POST /v1/ask`
+- `POST /v1/ask/stream`
+- `GET /v1/debug/trace`
+- `GET /v1/debug/metrics`
+- `GET /v1/history`
+- `GET /v1/metrics/dashboard`
+
+Direct API calls require a bearer token. The local Streamlit app generates demo tokens automatically from the selected role.
+
+To mint a demo token locally:
+
+```bash
+python -c "from app.core.auth import create_demo_token; print(create_demo_token('operations_analyst'))"
+```
+
+---
+
+## Evaluation
+
+The project includes both tests and a broader eval harness.
+
+Current project quality indicators:
+
+| Metric | Result |
+|---|---|
+| Eval cases | 51 |
+| Test suite | 31/31 passing |
+| Coverage | route, citations, trace, freshness, blocked-source behavior, retrieval precision/recall, scenario slices |
+
+The eval harness checks:
+
+- route detection
+- region and metric extraction
+- citation presence
+- trace depth
+- answer presence
+- freshness and blocked-source expectations
+- retrieval precision and recall
+- scenario-tag summaries for stale, lagging, restricted, ambiguous, and low-evidence cases
+- optional LLM-as-judge scoring
+
+---
+
+## Data Model
+
+This project uses synthetic but realistic enterprise-style data.
+
+Raw bronze feeds:
 
 - `data/raw/bronze/kpi_feed.csv`
 - `data/raw/bronze/shipment_event_feed.csv`
 - `data/raw/bronze/incident_feed.csv`
 - `data/raw/bronze/metric_catalog.csv`
 
-Those raw feeds intentionally include duplicates, inconsistent region names, inconsistent metric names, and delayed timestamps.
-
-The curated serving tables are:
+Curated serving tables:
 
 - `daily_kpis`
 - `shipment_events`
 - `incident_log`
 - `metric_definitions`
 
-It also includes unstructured business knowledge:
+Unstructured knowledge base:
 
+- SOPs
+- runbooks
+- policies
 - metric definition docs
-- anomaly investigation SOP
-- delivery disruption runbook
-- escalation policy
-- incident review note
+- incident notes
 
-## Request Flow
+The raw feeds intentionally include:
 
-1. User submits a business question to `POST /v1/ask`
-2. Raw bronze feeds are normalized into curated CSV serving tables through `scripts/build_curated_data.py`
-3. Data quality checks validate the curated layer before DuckDB is rebuilt
-4. Bearer-token auth determines the caller role and rate limiting protects the API surface
-5. Request role determines which structured resources and doc groups are allowed
-6. Semantic cache checks whether a highly similar question was answered recently for the same role
-7. Router classifies the question as structured, document, or hybrid
-8. Workflow extracts region and metric where possible
-9. Structured tools fetch KPI, anomaly, incident, and failure evidence from DuckDB only if access policy allows it
-10. Retrieval layer fetches document candidates from ChromaDB, merges vector and keyword rankings, reranks the fused result set, and filters restricted sources
-11. LLM synthesizes an answer strictly from gathered evidence
-12. Guardrails attach confidence, confidence breakdown, freshness/completeness status, blocked-source trace, citations, cache metadata, and analyst-review fallback
+- duplicates
+- inconsistent metric and region names
+- delayed timestamps
+- stale and incomplete data scenarios
 
-## API Endpoints
+---
 
-- `GET /v1/health`: health check and runtime config visibility
-- `POST /v1/ask`: primary investigation endpoint
-- `GET /v1/debug/trace`: inspect routing and workflow trace for a question
-- `GET /v1/debug/metrics`: operational dashboard summary for recent requests
-- `POST /v1/ask/stream`: server-sent events stream for progressive answer delivery
-
-Direct API calls now require a bearer token. The local Streamlit demo generates demo tokens automatically based on the selected role. If you want to test the API manually, you can mint a local demo token with:
-
-```bash
-python -c "from app.core.auth import create_demo_token; print(create_demo_token('operations_analyst'))"
-```
-
-## Demo Experience
-
-The repo now includes a simple Streamlit app in `frontend/streamlit_app.py` that calls the FastAPI backend and renders:
-
-- answer summary
-- selected user role
-- confidence and analyst-review status
-- confidence breakdown
-- suggested follow-up questions
-- freshness and completeness status
-- likely causes
-- recommended next steps
-- citations
-- blocked sources
-- workflow trace
-- daily metrics dashboard with role-aware alerts
-- recent investigations / audit trail
-- request ID and latency
-- cache status
-- ops metrics dashboard with latency, cache hit rate, token totals, and estimated cost
-- raw JSON response
-
-## Example Questions
-
-- Why did delivery success rate drop in Region 3 on 2026-03-31?
-- What does the escalation policy say about low-confidence cases?
-- Why did delivery success rate drop in Region 3 and what does the SOP suggest we do next?
-- Explain the return rate spike in Region 4.
-- Which KPIs moved abnormally this week?
-- How should we respond next for Region 5?
-
-## Failure-Mode Showcase
-
-The current live demo and eval suite explicitly cover failure-oriented scenarios instead of only happy paths:
-
-- stale data on `on_time_delivery_rate` in Region 2 lowers confidence and keeps analyst review on
-- lagging and partial returns data in Region 4 downgrades confidence even when a likely cause exists
-- restricted roles trigger blocked-source handling instead of leaking incident notes or runbooks
-- ambiguous Region 5 prompts force the workflow into low-evidence behavior instead of pretending certainty
-- hybrid questions exercise both KPI evidence and policy/runbook guidance in the same answer
-
-## Evaluation Approach
-
-This project includes two layers of quality checks:
-
-### Unit and integration-oriented tests
-
-- routing logic
-- chunking behavior
-- answer guardrails
-- workflow failure fallback
-- service-layer mapping
-
-Current local result:
-
-- `26/26` tests passing
-
-### Expanded eval harness
-
-The eval harness in `evals/run_eval.py` checks:
-
-- route detection
-- metric and region extraction
-- citation presence
-- trace depth
-- answer presence
-- freshness detection
-- blocked-source expectations by role
-- retrieval precision and recall against gold doc-group labels
-- scenario-tag slices for stale, lagging, restricted, ambiguous, and low-evidence cases
-- optional LLM-as-judge scoring for faithfulness, completeness, and citation accuracy
-
-Current local quality result:
-
-| Metric | Result |
-|---|---|
-| Eval cases | 51 |
-| Test suite | 31/31 passing |
-| Coverage | route, trace, citations, freshness, blocked-source handling, answer presence, retrieval precision/recall, scenario-tag summaries |
-
-The eval runner also supports a minimum-score gate through `EVAL_MIN_AVG_SCORE`, prints aggregate check pass rates, and summarizes scenario tags so regressions are visible by failure mode, not only by overall average.
-
-## Project Structure
-
-```text
-app/
-  api/
-    v1/             # versioned FastAPI routes
-  core/             # config, auth, caching, and logging
-  db/               # DuckDB setup
-  llm/              # prompts and answer synthesis
-  orchestration/    # LangGraph workflow
-  retrieval/        # chunking, hybrid retrieval, and reranking
-  schemas/          # request/response models
-  services/         # business logic
-  tools/            # agent-callable tools
-data/
-  cache/            # local semantic cache SQLite file (runtime-generated, gitignored)
-  raw/              # messy bronze-style feeds used to rebuild curated sources
-  docs/             # SOPs, runbooks, policies, notes
-  structured/       # source CSVs and DuckDB file
-  vector/           # ChromaDB persistence
-evals/
-  datasets/         # evaluation questions and gold retrieval labels
-  llm_judge.py      # optional judge scoring
-frontend/
-  streamlit_app.py  # lightweight demo UI
-.github/
-  workflows/        # CI checks
-render.yaml         # Render deployment scaffolding for the API and Streamlit demo
-tests/              # unit and workflow tests
-```
-
-## How To Run
-
-### 1. Create and activate a virtual environment
+## Run Locally
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-```
-
-### 2. Install dependencies
-
-```bash
 python -m pip install -e ".[dev]"
-```
-
-### 3. Configure environment variables
-
-Create `.env` from the sample file:
-
-```bash
 cp .env.example .env
-```
-
-Then add your OpenAI API key to `.env`:
-
-```env
-OPENAI_API_KEY=sk-...
-JWT_SECRET=replace-me
-```
-
-Langfuse is optional. If you want cloud traces for prompts, tokens, and cost metadata, also set:
-
-```env
-LANGFUSE_PUBLIC_KEY=pk-...
-LANGFUSE_SECRET_KEY=sk-...
-LANGFUSE_HOST=https://cloud.langfuse.com
-```
-
-### 4. Initialize data stores
-
-```bash
-python scripts/build_curated_data.py
-python scripts/run_data_quality_checks.py
 python scripts/init_duckdb.py
 python scripts/index_documents.py
-```
-
-`python scripts/init_duckdb.py` already rebuilds curated data and runs the quality checks before recreating DuckDB, so the first two commands are optional if you want the one-step path.
-
-### 5. Run the API
-
-```bash
 python -m uvicorn app.main:app --reload
-```
-
-### 6. Run the Streamlit demo
-
-In a second terminal:
-
-```bash
 streamlit run frontend/streamlit_app.py
 ```
 
-### 7. Open the app surfaces
+Then open:
 
-Visit:
+- `http://127.0.0.1:8000/docs`
+- `http://localhost:8501`
 
-```text
-http://127.0.0.1:8000/docs
-```
-
-And for Streamlit:
-
-```text
-http://localhost:8501
-```
-
-Hosted deployment:
-
-```text
-https://agentic-analytics-api.onrender.com/docs
-https://agentic-analytics-streamlit.onrender.com
-```
-
-### 8. Run tests and evals
+Run tests and evals:
 
 ```bash
 python -m pytest
 python evals/run_eval.py
 ```
 
-## Sample Output Shape
+---
 
-The `POST /v1/ask` endpoint returns:
+## Project Structure
 
-- `answer`
-- `role`
-- `confidence`
-- `confidence_breakdown`
-- `needs_analyst_review`
-- `analyst_review_reason`
-- `likely_causes`
-- `recommended_next_steps`
-- `citations`
-- `trace`
-- `evidence_summary`
-- `blocked_sources`
-- `suggested_follow_up_questions`
-- `data_as_of`
-- `freshness_status`
-- `completeness_status`
-- `request_id`
-- `latency_ms`
-- `cache_status`
+```text
+app/
+  api/            # versioned FastAPI routes
+  core/           # auth, cache, observability, config
+  db/             # DuckDB bootstrap
+  llm/            # prompts and synthesis
+  orchestration/  # LangGraph workflow
+  retrieval/      # vector search, BM25, reranking
+  schemas/        # request/response models
+  services/       # business logic
+  tools/          # agent-callable tool wrappers
+data/
+  raw/            # bronze-style feeds
+  structured/     # curated sources and DuckDB
+  docs/           # SOPs, runbooks, policies, notes
+  vector/         # Chroma persistence
+  cache/          # semantic cache SQLite file
+evals/
+  datasets/       # eval questions and gold labels
+frontend/
+  streamlit_app.py
+tests/
+  unit and workflow tests
+render.yaml
+```
 
-The streaming variant at `POST /v1/ask/stream` emits server-sent events in this order:
+---
 
-- `status` when the workflow starts
-- `status` again when the final answer payload is ready
-- repeated `answer_chunk` events for progressive text rendering
-- `complete` with the full JSON payload
+## Why This Project Is Strong For Applied AI Roles
+
+It demonstrates:
+
+- hybrid retrieval over structured and unstructured sources
+- agent workflow orchestration instead of single-shot prompting
+- enterprise framing around access control, traceability, and analyst review
+- eval-driven development instead of demo-only development
+- production-minded backend work: auth, rate limiting, caching, observability, CI, deployment
+
+---
 
 ## Limitations
 
-- The current dataset is synthetic and intentionally small, even though it now includes a raw-to-curated simulation layer
-- Eval coverage is much stronger than the original starter harness, but it is still not a full production regression suite
-- Confidence logic is heuristic and should be calibrated further
-- The reranker and hybrid retrieval stack are optimized for local prototyping, not for large-scale production latency budgets yet
-- The vector index is generated locally and intentionally excluded from source control
-- Auth is currently a local bearer-token demo flow, not an external identity provider or SSO integration
-- Langfuse hooks are optional and only activate when Langfuse credentials are configured
-- The hosted Streamlit demo now includes a local fallback path for reliability, but the best document-heavy behavior is still strongest in a fully provisioned local/dev setup
-- The current interface is a polished demo UI, not a fully deployed internal product
+- The dataset is synthetic and intentionally small, even though it includes realistic failure modes
+- Confidence scoring is still heuristic and could be calibrated further
+- The hosted demo is optimized for reliability on Render free tier, not maximum retrieval depth
+- The auth flow is a demo bearer-token model, not a real identity provider
+- The current UI is a polished demo surface, not a full internal product
 
-## Production Considerations
-
-In a real enterprise setting, the AI workflow should not sit directly on top of raw operational logs. A production version would usually place the agent on top of curated, quality-checked serving tables and documented business knowledge.
-
-Key production concerns:
-
-- raw source data is often incomplete, duplicated, delayed, or inconsistent
-- raw-to-curated transforms should be observable and rerunnable
-- late-arriving events can make current-day metrics temporarily unreliable
-- freshness and completeness metadata should be propagated into confidence scoring
-- low-quality or stale data should lower confidence and increase analyst-review routing
-- upstream schema changes and broken joins should be detected before data reaches the AI layer
-- the system should automate triage and evidence gathering, not assume every operational decision can be safely auto-executed
-
-## Why This Project Is Useful For Applied AI Roles
-
-This project demonstrates:
-
-- grounded retrieval across structured and unstructured data
-- agent workflow orchestration instead of single-shot prompting
-- reliability features like logging, traces, fallbacks, and structured outputs
-- evaluation-aware development instead of demo-only development
-- enterprise-style framing around business workflows and analyst review
+---
 
 ## Future Work
 
-- external identity provider integration instead of demo bearer tokens
-- true parallel document and structured retrieval orchestration at larger scale
-- deployed live environment with CI-driven eval gates
-- richer SQL drafting and deeper investigation mode
-- dashboard integration or incident-ticket integration
-- proactive anomaly detection and scheduled alert dispatch
-- external identity and real user-to-region mapping instead of demo role tokens
+- external identity provider / SSO
+- proactive anomaly detection and alert dispatch
+- richer SQL drafting and investigation depth
+- deeper confidence calibration
+- more robust hosted document indexing
+- ticketing / Slack integration
 
-## Deployment
+---
 
-The repo now includes [render.yaml](/Users/nidhirajani/Documents/New%20project/render.yaml) with separate services for:
+## Live Links
 
-- the FastAPI backend
-- the Streamlit demo UI
-
-To deploy on Render:
-
-1. Create a new Blueprint deployment from the repo.
-2. Add `OPENAI_API_KEY` in the Render environment.
-3. Optionally add Langfuse keys for hosted tracing.
-4. Deploy both services from the generated blueprint.
-
-This environment does not have access to your Render or Railway account, so the live URL still needs to be created from your side after the config is pushed.
-
-Current live URLs:
-
-- Streamlit app: [https://agentic-analytics-streamlit.onrender.com](https://agentic-analytics-streamlit.onrender.com)
-- FastAPI API: [https://agentic-analytics-api.onrender.com](https://agentic-analytics-api.onrender.com)
+- Streamlit: [https://agentic-analytics-streamlit.onrender.com](https://agentic-analytics-streamlit.onrender.com)
+- API: [https://agentic-analytics-api.onrender.com](https://agentic-analytics-api.onrender.com)
 - API docs: [https://agentic-analytics-api.onrender.com/docs](https://agentic-analytics-api.onrender.com/docs)
