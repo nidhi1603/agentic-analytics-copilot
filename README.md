@@ -27,7 +27,7 @@ The system accepts a business investigation question through a versioned FastAPI
 
 ### Streamlit overview
 
-![Streamlit overview](./assets/demo-overview.png)
+![Streamlit overview](./assets/demo-overview-v2.png)
 
 The current demo flow highlights:
 
@@ -35,6 +35,25 @@ The current demo flow highlights:
 - grounded answer output with confidence and analyst-review status
 - freshness and completeness signals for partial or lagging data
 - blocked-source handling for restricted roles
+- follow-up suggestions that let the analyst continue the investigation in one click
+
+### Daily metrics dashboard
+
+![Daily metrics dashboard](./assets/daily-metrics.png)
+
+The live demo now includes a role-based daily dashboard that shows only the metrics each role is allowed to see, applies red/amber/green threshold logic, surfaces operational alerts, and renders restricted placeholders where policy blocks deeper visibility.
+
+### Recent investigations
+
+![Recent investigations](./assets/recent-investigations.png)
+
+The audit trail tab captures recent investigations with role, timestamp, confidence, review requirement, and answer summary so the system feels closer to an internal enterprise tool than a one-off chatbot.
+
+### Suggested follow-ups
+
+![Suggested follow-ups](./assets/suggested-followups.png)
+
+Suggested follow-up questions make the app behave more like a copilot than a search box by guiding the user toward the next best investigation step.
 
 ### Confidence breakdown
 
@@ -83,6 +102,10 @@ flowchart LR
 - Request observability persisted to a local metrics store, with optional Langfuse tracing hooks
 - Streaming investigation endpoint for progressive answer delivery
 - Workflow trace endpoint for debugging orchestration decisions
+- Role-based daily metrics dashboard with threshold alerts and restricted placeholders
+- Investigation history / audit trail for recent questions and system outputs
+- Suggested follow-up questions that extend the investigation path from the current answer
+- Hosted-demo local fallback path so the Streamlit app still works when the free-tier API cold-starts or becomes temporarily unavailable
 - Streamlit demo UI for recruiter-friendly exploration
 - Local evaluation harness for route correctness, citations, trace depth, freshness, blocked-source expectations, and retrieval quality
 - Dockerized local startup path
@@ -197,12 +220,15 @@ The repo now includes a simple Streamlit app in `frontend/streamlit_app.py` that
 - selected user role
 - confidence and analyst-review status
 - confidence breakdown
+- suggested follow-up questions
 - freshness and completeness status
 - likely causes
 - recommended next steps
 - citations
 - blocked sources
 - workflow trace
+- daily metrics dashboard with role-aware alerts
+- recent investigations / audit trail
 - request ID and latency
 - cache status
 - ops metrics dashboard with latency, cache hit rate, token totals, and estimated cost
@@ -263,7 +289,7 @@ Current local quality result:
 | Metric | Result |
 |---|---|
 | Eval cases | 51 |
-| Test suite | 26/26 passing |
+| Test suite | 31/31 passing |
 | Coverage | route, trace, citations, freshness, blocked-source handling, answer presence, retrieval precision/recall, scenario-tag summaries |
 
 The eval runner also supports a minimum-score gate through `EVAL_MIN_AVG_SCORE`, prints aggregate check pass rates, and summarizes scenario tags so regressions are visible by failure mode, not only by overall average.
@@ -406,6 +432,7 @@ The `POST /v1/ask` endpoint returns:
 - `trace`
 - `evidence_summary`
 - `blocked_sources`
+- `suggested_follow_up_questions`
 - `data_as_of`
 - `freshness_status`
 - `completeness_status`
@@ -429,6 +456,7 @@ The streaming variant at `POST /v1/ask/stream` emits server-sent events in this 
 - The vector index is generated locally and intentionally excluded from source control
 - Auth is currently a local bearer-token demo flow, not an external identity provider or SSO integration
 - Langfuse hooks are optional and only activate when Langfuse credentials are configured
+- The hosted Streamlit demo now includes a local fallback path for reliability, but the best document-heavy behavior is still strongest in a fully provisioned local/dev setup
 - The current interface is a polished demo UI, not a fully deployed internal product
 
 ## Production Considerations
@@ -462,6 +490,8 @@ This project demonstrates:
 - deployed live environment with CI-driven eval gates
 - richer SQL drafting and deeper investigation mode
 - dashboard integration or incident-ticket integration
+- proactive anomaly detection and scheduled alert dispatch
+- external identity and real user-to-region mapping instead of demo role tokens
 
 ## Deployment
 
