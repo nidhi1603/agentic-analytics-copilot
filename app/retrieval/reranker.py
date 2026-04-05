@@ -8,12 +8,15 @@ from app.core.config import get_settings
 
 @lru_cache
 def get_reranker() -> Any | None:
+    settings = get_settings()
+    if not settings.enable_reranker:
+        return None
+
     try:
         from sentence_transformers import CrossEncoder
     except Exception:  # pragma: no cover - optional runtime dependency during local install
         return None
 
-    settings = get_settings()
     return CrossEncoder(settings.reranker_model_name)
 
 

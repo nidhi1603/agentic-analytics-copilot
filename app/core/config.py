@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     hybrid_search_vector_candidates: int = 20
     hybrid_search_keyword_candidates: int = 20
     retrieval_final_limit: int = 5
+    enable_reranker: bool = True
     reranker_model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     semantic_cache_path: str = "data/cache/semantic_cache.sqlite"
     semantic_cache_similarity_threshold: float = 0.95
