@@ -134,6 +134,31 @@ def test_debug_metrics_endpoint_returns_summary(monkeypatch) -> None:
     assert body["summary"]["requests"] == 3
 
 
+def test_metrics_dashboard_endpoint_returns_role_scoped_payload(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.v1.routes.metrics.get_dashboard_for_role",
+        lambda role: {
+            "role": role,
+            "role_label": "Regional manager view",
+            "assigned_region": "Region 3",
+            "alerts": [{"level": "red", "title": "Threshold breached"}],
+            "sections": [{"title": "My region performance (Region 3)", "metrics": []}],
+            "restricted": ["Raw shipment logs are not visible to this role."],
+        },
+    )
+
+    response = client.get(
+        "/v1/metrics/dashboard",
+        headers=_auth_headers("regional_manager"),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["role"] == "regional_manager"
+    assert body["assigned_region"] == "Region 3"
+    assert body["alerts"][0]["level"] == "red"
+
+
 def test_stream_endpoint_returns_sse(monkeypatch) -> None:
     monkeypatch.setitem(app.state.__dict__, "_rate_buckets", {})
 

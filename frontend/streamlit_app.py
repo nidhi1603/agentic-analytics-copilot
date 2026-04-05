@@ -51,6 +51,7 @@ def initialize_session_state() -> None:
     st.session_state.setdefault("question", EXAMPLE_QUESTIONS[0])
     st.session_state.setdefault("last_payload", None)
     st.session_state.setdefault("metrics_payload", None)
+    st.session_state.setdefault("dashboard_payload", None)
     st.session_state.setdefault("health_payload", None)
     st.session_state.setdefault("backend_status", "Unknown")
     st.session_state.setdefault("role", "operations_analyst")
@@ -563,6 +564,144 @@ def inject_styles() -> None:
             border: 1px solid rgba(22, 33, 47, 0.08) !important;
         }
 
+        .dashboard-shell {
+            background: rgba(255, 251, 245, 0.76);
+            border: 1px solid rgba(22, 33, 47, 0.08);
+            border-radius: 28px;
+            box-shadow: var(--shadow);
+            padding: 1.4rem 1.5rem 1.2rem;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .dashboard-title {
+            font-family: "Space Grotesk", sans-serif;
+            font-size: 1.65rem;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .dashboard-copy {
+            color: var(--muted);
+            font-size: 0.95rem;
+            margin-top: 0.25rem;
+        }
+
+        .dashboard-meta {
+            color: var(--muted);
+            font-size: 0.82rem;
+            text-align: right;
+        }
+
+        .alert-banner {
+            border-radius: 18px;
+            padding: 0.95rem 1rem;
+            margin-bottom: 0.8rem;
+            border-left: 4px solid transparent;
+        }
+
+        .alert-banner.red {
+            background: rgba(180, 35, 24, 0.08);
+            border-left-color: rgba(180, 35, 24, 0.88);
+        }
+
+        .alert-banner.amber {
+            background: rgba(183, 121, 31, 0.11);
+            border-left-color: rgba(183, 121, 31, 0.88);
+        }
+
+        .alert-banner-title {
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 0.2rem;
+        }
+
+        .alert-banner-copy,
+        .alert-banner-reco {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .dashboard-section {
+            margin-top: 1.3rem;
+        }
+
+        .dashboard-section-title {
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            font-size: 0.8rem;
+            margin-bottom: 0.65rem;
+            font-weight: 600;
+        }
+
+        .dashboard-card {
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid rgba(22, 33, 47, 0.08);
+            border-radius: 20px;
+            padding: 1rem;
+            min-height: 138px;
+            box-shadow: 0 10px 28px rgba(23, 30, 38, 0.05);
+        }
+
+        .dashboard-card-label {
+            color: var(--muted);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 600;
+        }
+
+        .dashboard-card-value {
+            color: var(--ink);
+            font-family: "Space Grotesk", sans-serif;
+            font-size: 1.85rem;
+            line-height: 1.1;
+            margin: 0.45rem 0;
+            font-weight: 700;
+        }
+
+        .dashboard-card-detail {
+            color: var(--muted);
+            font-size: 0.88rem;
+            line-height: 1.45;
+        }
+
+        .dashboard-status {
+            display: flex;
+            align-items: center;
+            gap: 0.42rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-bottom: 0.55rem;
+        }
+
+        .status-dot {
+            width: 0.65rem;
+            height: 0.65rem;
+            border-radius: 999px;
+            display: inline-block;
+        }
+
+        .status-dot.green { background: var(--teal); }
+        .status-dot.amber { background: var(--gold); }
+        .status-dot.red { background: var(--danger); }
+
+        .restricted-row {
+            border: 1px dashed rgba(22, 33, 47, 0.18);
+            background: rgba(255, 255, 255, 0.46);
+            color: var(--muted);
+            border-radius: 18px;
+            padding: 0.95rem 1rem;
+            margin-top: 0.8rem;
+        }
+
         @media (max-width: 980px) {
             .hero-grid {
                 grid-template-columns: 1fr;
@@ -599,8 +738,12 @@ def render_sidebar() -> None:
     if st.button("Check Backend Health", use_container_width=True):
         st.session_state["health_payload"] = perform_health_check(backend_url)
 
-    if st.button("Refresh Ops Metrics", use_container_width=True):
+    if st.button("Refresh Dashboards", use_container_width=True):
         st.session_state["metrics_payload"] = fetch_metrics(
+            backend_url=backend_url,
+            role=st.session_state.get("role", "operations_analyst"),
+        )
+        st.session_state["dashboard_payload"] = fetch_dashboard_metrics(
             backend_url=backend_url,
             role=st.session_state.get("role", "operations_analyst"),
         )
@@ -713,6 +856,10 @@ def render_control_panel() -> None:
                     backend_url=st.session_state.get("backend_url", DEFAULT_BACKEND_URL),
                     role=st.session_state.get("role", "operations_analyst"),
                 )
+                st.session_state["dashboard_payload"] = fetch_dashboard_metrics(
+                    backend_url=st.session_state.get("backend_url", DEFAULT_BACKEND_URL),
+                    role=st.session_state.get("role", "operations_analyst"),
+                )
     with reset_col:
         if st.button("Reset", use_container_width=True):
             st.session_state["last_payload"] = None
@@ -720,30 +867,43 @@ def render_control_panel() -> None:
 
 def render_workspace() -> None:
     payload = st.session_state.get("last_payload")
-    if not payload:
-        render_empty_workspace()
-        return
+    if payload:
+        render_summary(payload)
 
-    render_summary(payload)
-    summary_tab, evidence_tab, trace_tab, metrics_tab, raw_tab = st.tabs(
-        ["Summary", "Evidence", "Workflow Trace", "Ops Metrics", "Raw Response"]
+    summary_tab, evidence_tab, trace_tab, daily_metrics_tab, metrics_tab, raw_tab = st.tabs(
+        ["Summary", "Evidence", "Workflow Trace", "Daily Metrics", "Ops Metrics", "Raw Response"]
     )
 
     with summary_tab:
-        render_outcome_lists(payload)
+        if payload:
+            render_outcome_lists(payload)
+        else:
+            render_empty_workspace()
 
     with evidence_tab:
-        render_citations(payload)
-        render_evidence_summary(payload)
+        if payload:
+            render_citations(payload)
+            render_evidence_summary(payload)
+        else:
+            st.caption("Run an investigation to inspect grounded evidence.")
 
     with trace_tab:
-        render_trace(payload)
+        if payload:
+            render_trace(payload)
+        else:
+            st.caption("Workflow trace will appear after an investigation runs.")
+
+    with daily_metrics_tab:
+        render_daily_metrics_dashboard()
 
     with metrics_tab:
         render_metrics_dashboard()
 
     with raw_tab:
-        st.json(payload)
+        if payload:
+            st.json(payload)
+        else:
+            st.caption("The raw API response will appear here after an investigation.")
 
 
 def render_empty_workspace() -> None:
@@ -820,6 +980,23 @@ def fetch_metrics(
         return response.json()
     except Exception as exc:
         st.info(f"Ops metrics are not available yet: {exc}")
+        return None
+
+
+def fetch_dashboard_metrics(
+    backend_url: str,
+    role: str,
+) -> dict[str, Any] | None:
+    try:
+        response = httpx.get(
+            f"{backend_url}/v1/metrics/dashboard",
+            headers=build_auth_headers(role),
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as exc:
+        st.info(f"Daily metrics dashboard is not available yet: {exc}")
         return None
 
 
@@ -1056,6 +1233,95 @@ def render_trace(payload: dict[str, Any]) -> None:
             """,
             unsafe_allow_html=True,
         )
+
+
+def render_daily_metrics_dashboard() -> None:
+    backend_url = st.session_state.get("backend_url", DEFAULT_BACKEND_URL)
+    role = st.session_state.get("role", "operations_analyst")
+
+    @st.fragment(run_every=60)
+    def render_dashboard_fragment() -> None:
+        payload = fetch_dashboard_metrics(backend_url=backend_url, role=role)
+        if payload:
+            st.session_state["dashboard_payload"] = payload
+
+        current_payload = st.session_state.get("dashboard_payload")
+        if not current_payload:
+            st.caption("Daily metrics will appear here once the backend dashboard endpoint responds.")
+            return
+
+        assigned_region = current_payload.get("assigned_region")
+        generated_at = str(current_payload.get("generated_at", "unknown")).replace("T", " ")
+        st.markdown(
+            f"""
+            <div class="dashboard-shell">
+                <div class="dashboard-header">
+                    <div>
+                        <div class="dashboard-title">Role-based daily metrics</div>
+                        <div class="dashboard-copy">
+                            Each role sees only the metrics and alerting surfaces it is authorized to access.
+                        </div>
+                    </div>
+                    <div class="dashboard-meta">
+                        <div><strong>Role:</strong> {html.escape(str(current_payload.get("role_label", role)).title())}</div>
+                        <div><strong>Scope:</strong> {html.escape(assigned_region or "All visible regions")}</div>
+                        <div><strong>Auto-refresh:</strong> every {int(current_payload.get("auto_refresh_seconds", 60))}s</div>
+                        <div><strong>Data as of:</strong> {html.escape(generated_at)}</div>
+                    </div>
+                </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        alerts = current_payload.get("alerts", [])
+        if alerts:
+            for alert in alerts:
+                level = str(alert.get("level", "amber"))
+                st.markdown(
+                    f"""
+                    <div class="alert-banner {html.escape(level)}">
+                        <div class="alert-banner-title">{html.escape(str(alert.get('title', 'Alert')))}</div>
+                        <div class="alert-banner-copy">{html.escape(str(alert.get('message', '')))}</div>
+                        <div class="alert-banner-reco">{html.escape(str(alert.get('recommendation', '')))}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+        for section in current_payload.get("sections", []):
+            st.markdown(
+                f"<div class='dashboard-section'><div class='dashboard-section-title'>{html.escape(str(section.get('title', 'Section')))}</div></div>",
+                unsafe_allow_html=True,
+            )
+            metrics = section.get("metrics", [])
+            columns = st.columns(min(4, max(1, len(metrics))))
+            for index, metric in enumerate(metrics):
+                with columns[index % len(columns)]:
+                    status = str(metric.get("status", "green"))
+                    st.markdown(
+                        f"""
+                        <div class="dashboard-card">
+                            <div class="dashboard-card-label">{html.escape(str(metric.get('label', 'Metric')))}</div>
+                            <div class="dashboard-card-value">{html.escape(str(metric.get('display_value', '—')))}</div>
+                            <div class="dashboard-status">
+                                <span class="status-dot {html.escape(status)}"></span>
+                                <span>{html.escape(str(metric.get('status_text', 'Normal')))}</span>
+                            </div>
+                            <div class="dashboard-card-detail">{html.escape(str(metric.get('detail', '')))}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+        for item in current_payload.get("restricted", []):
+            st.markdown(
+                f"<div class='restricted-row'>{html.escape(str(item))}</div>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    render_dashboard_fragment()
 
 
 def render_metrics_dashboard() -> None:
