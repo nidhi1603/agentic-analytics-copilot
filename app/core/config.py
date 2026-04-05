@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "agentic-analytics-copilot"
     app_env: str = "local"
+    bootstrap_on_startup: bool = True
     duckdb_path: str = "data/structured/operations.duckdb"
     chroma_path: str = "data/vector/chroma"
     chroma_collection_name: str = "ops_knowledge_base"

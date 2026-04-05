@@ -18,7 +18,8 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     configure_logging()
-    initialize_database()
+    if settings.bootstrap_on_startup:
+        initialize_database()
     initialize_observability_store()
     yield
 
