@@ -33,6 +33,7 @@ class AskResponse(BaseModel):
     analyst_review_reason: str | None = None
     likely_causes: list[str]
     recommended_next_steps: list[str]
+    suggested_follow_up_questions: list[str] = Field(default_factory=list)
     citations: list[Citation]
     trace: list[str]
     evidence_summary: str

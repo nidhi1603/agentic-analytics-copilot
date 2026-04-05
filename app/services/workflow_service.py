@@ -92,6 +92,7 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
             analyst_review_reason=synthesized.analyst_review_reason,
             likely_causes=synthesized.likely_causes,
             recommended_next_steps=synthesized.recommended_next_steps,
+            suggested_follow_up_questions=synthesized.suggested_follow_up_questions,
             citations=state.get("citations", []),
             trace=state.get("trace", []),
             evidence_summary=state.get("evidence_summary", ""),
@@ -161,6 +162,9 @@ def run_question_workflow(question: str, role: str) -> AskResponse:
             recommended_next_steps=[
                 "Retry the request after checking service dependencies.",
                 "Escalate to analyst review if the issue persists.",
+            ],
+            suggested_follow_up_questions=[
+                "What should an analyst verify first before retrying this investigation?",
             ],
             citations=[],
             trace=["workflow_failed"],

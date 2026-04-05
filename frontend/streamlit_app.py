@@ -1177,7 +1177,8 @@ def render_summary(payload: dict[str, Any]) -> None:
 
 def render_outcome_lists(payload: dict[str, Any]) -> None:
     breakdown = payload.get("confidence_breakdown", [])
-    breakdown_col, causes_col, steps_col = st.columns([1.1, 1, 1])
+    follow_ups = payload.get("suggested_follow_up_questions", [])
+    breakdown_col, causes_col, steps_col, follow_up_col = st.columns([1.1, 1, 1, 1])
     with breakdown_col:
         render_list_card(
             "Confidence Breakdown",
@@ -1192,6 +1193,24 @@ def render_outcome_lists(payload: dict[str, Any]) -> None:
             payload.get("recommended_next_steps", []),
             empty_message="No recommended next steps returned.",
         )
+    with follow_up_col:
+        render_list_card(
+            "Suggested Follow-ups",
+            follow_ups,
+            empty_message="No follow-up questions were generated.",
+        )
+
+    if follow_ups:
+        st.markdown("<div class='section-title'>Continue The Investigation</div>", unsafe_allow_html=True)
+        suggestion_cols = st.columns(len(follow_ups))
+        for index, follow_up in enumerate(follow_ups):
+            with suggestion_cols[index]:
+                if st.button(
+                    follow_up,
+                    key=f"follow_up_{payload.get('request_id', 'latest')}_{index}",
+                    use_container_width=True,
+                ):
+                    st.session_state["question"] = follow_up
 
 
 def render_list_card(title: str, items: list[str], empty_message: str) -> None:

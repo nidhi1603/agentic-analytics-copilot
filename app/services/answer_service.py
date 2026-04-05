@@ -64,7 +64,10 @@ def apply_confidence_guardrails(
             }
         )
         return updated.model_copy(
-            update={"confidence_breakdown": build_confidence_breakdown(state, updated)}
+            update={
+                "confidence_breakdown": build_confidence_breakdown(state, updated),
+                "suggested_follow_up_questions": build_follow_up_questions(state, updated),
+            }
         )
 
     if anomaly_count == 0 and document_count == 0:
@@ -77,7 +80,10 @@ def apply_confidence_guardrails(
             }
         )
         return updated.model_copy(
-            update={"confidence_breakdown": build_confidence_breakdown(state, updated)}
+            update={
+                "confidence_breakdown": build_confidence_breakdown(state, updated),
+                "suggested_follow_up_questions": build_follow_up_questions(state, updated),
+            }
         )
 
     if freshness_status in {"stale", "lagging"} or completeness_status in {"partial", "low"}:
@@ -91,7 +97,10 @@ def apply_confidence_guardrails(
             }
         )
         return updated.model_copy(
-            update={"confidence_breakdown": build_confidence_breakdown(state, updated)}
+            update={
+                "confidence_breakdown": build_confidence_breakdown(state, updated),
+                "suggested_follow_up_questions": build_follow_up_questions(state, updated),
+            }
         )
 
     if anomaly_count > 0 and incident_count > 0 and document_count > 0:
@@ -104,10 +113,16 @@ def apply_confidence_guardrails(
                 }
             )
             return updated.model_copy(
-                update={"confidence_breakdown": build_confidence_breakdown(state, updated)}
+                update={
+                    "confidence_breakdown": build_confidence_breakdown(state, updated),
+                    "suggested_follow_up_questions": build_follow_up_questions(state, updated),
+                }
             )
         return synthesized.model_copy(
-            update={"confidence_breakdown": build_confidence_breakdown(state, synthesized)}
+            update={
+                "confidence_breakdown": build_confidence_breakdown(state, synthesized),
+                "suggested_follow_up_questions": build_follow_up_questions(state, synthesized),
+            }
         )
 
     updated = synthesized.model_copy(
@@ -118,7 +133,10 @@ def apply_confidence_guardrails(
         }
     )
     return updated.model_copy(
-        update={"confidence_breakdown": build_confidence_breakdown(state, updated)}
+        update={
+            "confidence_breakdown": build_confidence_breakdown(state, updated),
+            "suggested_follow_up_questions": build_follow_up_questions(state, updated),
+        }
     )
 
 
@@ -167,3 +185,57 @@ def build_confidence_breakdown(
         breakdown.append("Structured and document evidence both support the current conclusion.")
 
     return breakdown
+
+
+def build_follow_up_questions(
+    state: WorkflowState, synthesized: SynthesizedAnswer
+) -> list[str]:
+    suggestions: list[str] = []
+    region = state.get("region") or "the impacted region"
+    metric_name = (state.get("metric_name") or "this KPI").replace("_", " ")
+    role = state.get("role", "operations_analyst")
+    route = state.get("route", "structured_only")
+
+    if state.get("incidents"):
+        suggestions.append(f"What incident details support the {metric_name} issue in {region}?")
+
+    if state.get("documents"):
+        suggestions.append(f"What do the runbook or policy documents recommend we do next for {region}?")
+    else:
+        suggestions.append(f"Which internal policy or SOP should we consult next for {region}?")
+
+    if state.get("anomaly_report") or state.get("kpi_summary"):
+        suggestions.append(f"How has {metric_name} trended over the last 3 days in {region}?")
+
+    freshness_status = state.get("freshness_status", "unknown")
+    completeness_status = state.get("completeness_status", "unknown")
+    if freshness_status in {"stale", "lagging"} or completeness_status in {"partial", "low"}:
+        suggestions.append(f"When will fresher or more complete data be available for {region}?")
+
+    blocked_sources = state.get("blocked_sources", [])
+    if blocked_sources:
+        if role == "exec_viewer":
+            suggestions.append("What analyst briefing should I request to review the restricted operational detail?")
+        elif role == "regional_manager":
+            suggestions.append(f"What analyst-only evidence is missing for {region}, and who should review it?")
+        else:
+            suggestions.append("Which restricted sources would improve confidence if an authorized reviewer checked them?")
+
+    if synthesized.needs_analyst_review:
+        suggestions.append("What should an analyst verify first before acting on this conclusion?")
+
+    if route == "documents_only":
+        suggestions.append(f"Can we validate this document guidance against KPI evidence for {region}?")
+    elif route == "structured_only":
+        suggestions.append(f"What document or runbook context should we use to interpret the {metric_name} movement?")
+
+    deduped: list[str] = []
+    seen = set()
+    for suggestion in suggestions:
+        normalized = suggestion.lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(suggestion)
+
+    return deduped[:4]

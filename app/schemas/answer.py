@@ -5,6 +5,7 @@ class SynthesizedAnswer(BaseModel):
     answer: str = Field(description="Grounded answer based only on provided evidence")
     likely_causes: list[str] = Field(default_factory=list)
     recommended_next_steps: list[str] = Field(default_factory=list)
+    suggested_follow_up_questions: list[str] = Field(default_factory=list)
     confidence: str = Field(description="One of high, medium, or low")
     confidence_breakdown: list[str] = Field(
         default_factory=list,
