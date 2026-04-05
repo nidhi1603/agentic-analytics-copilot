@@ -215,6 +215,17 @@ The repo now includes a simple Streamlit app in `frontend/streamlit_app.py` that
 - Why did delivery success rate drop in Region 3 and what does the SOP suggest we do next?
 - Explain the return rate spike in Region 4.
 - Which KPIs moved abnormally this week?
+- How should we respond next for Region 5?
+
+## Failure-Mode Showcase
+
+The current live demo and eval suite explicitly cover failure-oriented scenarios instead of only happy paths:
+
+- stale data on `on_time_delivery_rate` in Region 2 lowers confidence and keeps analyst review on
+- lagging and partial returns data in Region 4 downgrades confidence even when a likely cause exists
+- restricted roles trigger blocked-source handling instead of leaking incident notes or runbooks
+- ambiguous Region 5 prompts force the workflow into low-evidence behavior instead of pretending certainty
+- hybrid questions exercise both KPI evidence and policy/runbook guidance in the same answer
 
 ## Evaluation Approach
 
@@ -230,9 +241,9 @@ This project includes two layers of quality checks:
 
 Current local result:
 
-- `24/24` tests passing
+- `26/26` tests passing
 
-### Starter eval harness
+### Expanded eval harness
 
 The eval harness in `evals/run_eval.py` checks:
 
@@ -244,17 +255,18 @@ The eval harness in `evals/run_eval.py` checks:
 - freshness detection
 - blocked-source expectations by role
 - retrieval precision and recall against gold doc-group labels
+- scenario-tag slices for stale, lagging, restricted, ambiguous, and low-evidence cases
 - optional LLM-as-judge scoring for faithfulness, completeness, and citation accuracy
 
-Current local starter result:
+Current local quality result:
 
 | Metric | Result |
 |---|---|
-| Eval cases | 31 |
+| Eval cases | 51 |
 | Test suite | 26/26 passing |
-| Coverage | route, trace, citations, freshness, blocked-source handling, answer presence, retrieval precision/recall |
+| Coverage | route, trace, citations, freshness, blocked-source handling, answer presence, retrieval precision/recall, scenario-tag summaries |
 
-The eval runner also supports a minimum-score gate through `EVAL_MIN_AVG_SCORE`, which is used by CI when `OPENAI_API_KEY` is configured as a repository secret.
+The eval runner also supports a minimum-score gate through `EVAL_MIN_AVG_SCORE`, prints aggregate check pass rates, and summarizes scenario tags so regressions are visible by failure mode, not only by overall average.
 
 ## Project Structure
 
