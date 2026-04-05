@@ -837,12 +837,13 @@ def run_investigation(
         try:
             assembled_answer = ""
             current_event = None
+            stream_timeout = httpx.Timeout(connect=10.0, read=180.0, write=30.0, pool=30.0)
             with httpx.stream(
                 "POST",
                 f"{backend_url}/v1/ask/stream",
                 json={"question": question},
                 headers=build_auth_headers(role),
-                timeout=60.0,
+                timeout=stream_timeout,
             ) as response:
                 response.raise_for_status()
                 for raw_line in response.iter_lines():
@@ -855,7 +856,17 @@ def run_investigation(
                         continue
                     payload = json.loads(raw_line.split(":", 1)[1].strip())
                     if current_event == "status":
-                        stream_placeholder.info(payload.get("message", "Running..."))
+                        status_message = payload.get("message", "Running...")
+                        if status_message == "investigation_started":
+                            stream_placeholder.info("Investigation started.")
+                        elif status_message == "investigation_running":
+                            stream_placeholder.info(
+                                "Still gathering evidence. The hosted backend may take a minute on cold start."
+                            )
+                        elif status_message == "answer_ready":
+                            stream_placeholder.info("Answer ready. Streaming response...")
+                        else:
+                            stream_placeholder.info(status_message)
                     elif current_event == "answer_chunk":
                         assembled_answer += payload.get("token", "")
                         stream_placeholder.markdown(

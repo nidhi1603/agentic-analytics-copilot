@@ -30,7 +30,14 @@ async def ask_question_stream(
 ) -> StreamingResponse:
     async def event_stream():
         yield "event: status\ndata: " + json.dumps({"message": "investigation_started"}) + "\n\n"
-        response = await run_question_workflow_async(payload.question, current_user.role)
+        workflow_task = asyncio.create_task(
+            run_question_workflow_async(payload.question, current_user.role)
+        )
+        while not workflow_task.done():
+            yield "event: status\ndata: " + json.dumps({"message": "investigation_running"}) + "\n\n"
+            await asyncio.sleep(5)
+
+        response = await workflow_task
         yield "event: status\ndata: " + json.dumps(
             {
                 "message": "answer_ready",
